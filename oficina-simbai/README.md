@@ -1,13 +1,14 @@
 # Oficina SIMBAI: tus agentes de IA como una oficina 3D
 
-Un edificio con pasillo y despachos. Cada agente de IA es un trabajador en su mesa; tú recorres la oficina con tu personaje y, al acercarte a alguien, ves qué ha hecho y cuánto ha costado. Los datos salen de los logs reales de los agentes, no hay nada inventado.
+Un edificio cartoon con pasillo y despachos. Cada agente de IA es un robot flotante en su mesa; tú eres el robot coral, recorres la oficina y, al acercarte a alguien, ves qué ha hecho y cuánto ha costado. Los datos salen de los logs reales de los agentes, no hay nada inventado. El personaje, la paleta y el mobiliario vienen del prototipo de Runable de este mismo repo; la mecánica y los datos, de SIMBAI OS.
 
 ![Oficina 3D](docs/captura.png)
 
-- La lámpara y la pantalla de cada mesa se encienden según la última conversación: verde en las últimas 24 h, ámbar en la última semana, gris si hace más.
-- Una hoja de papel por cada 6 conversaciones; una carpeta roja si hay conversaciones incompletas.
-- Las mesas sin agente se ven apagadas, listas para el siguiente.
-- Tu despacho cierra el pasillo. Empiezas en él.
+- El color de cada robot es su estado real: mint si ha trabajado en las últimas 24 h, ámbar en la última semana, violeta apagado si hace más o no hay datos. Los robots giran la cabeza hacia ti cuando pasas cerca.
+- Una hoja de papel por cada 6 conversaciones; una carpeta coral si hay conversaciones incompletas.
+- Las mesas sin agente conservan la silla vacía, listas para el siguiente.
+- Tu despacho cierra el pasillo, con rack de servidores, pizarra y estantería. Empiezas en él.
+- Si no hay conexión con los agentes, la oficina se construye igual y los agentes de `despachos.json` aparecen apagados con "sin datos".
 
 Un solo archivo HTML con [Three.js](https://threejs.org/) por CDN. Sin build, sin npm.
 
@@ -68,4 +69,4 @@ Y en el navegador, `http://localhost:8794/?test` ejecuta los asserts de activida
 
 ## Origen
 
-Es la oficina 3D de SIMBAI OS, el panel interno de [SIMBAI](https://github.com/kdl177), extraída para que funcione sola. En SIMBAI OS, tu mesa muestra además el briefing del CRM; aquí ese panel indica que no hay datos, porque el servidor mínimo no expone el CRM.
+Es la oficina 3D de SIMBAI OS, el panel interno de [SIMBAI](https://github.com/kdl177), fusionada con el prototipo "AI Office 3D" que Runable generó en `packages/web` (React Three Fiber): de ahí salen el robot, la paleta y los muebles. La página de esa app redirige ahora a esta oficina, que también se copia en `packages/web/public/`. En SIMBAI OS, tu mesa muestra además el briefing del CRM; aquí ese panel indica que no hay datos, porque el servidor mínimo no expone el CRM.

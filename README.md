@@ -1,9 +1,9 @@
 # Visual robot: agente de IA
 
-Dos oficinas 3D para ver agentes de IA trabajando:
+Una oficina 3D cartoon donde tus agentes de IA son robots que trabajan en despachos, y tú los visitas con tu propio robot.
 
-- **[`oficina-simbai/`](oficina-simbai/)**: la oficina de SIMBAI. Un HTML con Three.js y un servidor Python de 80 líneas, sin build. Lee los logs reales de tus agentes y los pone a trabajar en despachos; tú los recorres con tu personaje. Cómo arrancarla, en su [README](oficina-simbai/README.md).
-- **`packages/web`**: prototipo generado con Runable en React Three Fiber, con un personaje agente, HUD y chat de muestra. Se arranca con Bun, como describe la plantilla de abajo. Cómo embeberlo, en [EMBED.md](EMBED.md); diseño, en [design.md](design.md).
+- **[`oficina-simbai/`](oficina-simbai/)** es la oficina: un HTML con Three.js y un servidor Python de 90 líneas, sin build. Lee los logs reales de tus agentes; al acercarte a uno ves su actividad y coste. Cómo arrancarla, en su [README](oficina-simbai/README.md).
+- **`packages/web`** es la app generada con Runable (React Three Fiber). Su prototipo "AI Office 3D" aportó el personaje robot, la paleta y el mobiliario, descritos en [design.md](design.md). Su página de inicio redirige ahora a la oficina fusionada, que está copiada en `packages/web/public/`, así que al publicar la app con Runable se ve la misma oficina. Se arranca con Bun, como describe la plantilla de abajo.
 
 ---
 
