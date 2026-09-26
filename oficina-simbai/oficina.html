@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Oficina SIMBAI</title>
+<meta name="description" content="Oficina 3D de los agentes de IA de SIMBAI: recorre los despachos, acércate a cada agente y ve su actividad y coste, leídos de sus logs.">
+<meta name="theme-color" content="#0d1117">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"
+} }
+</script>
+<style>
+:root{
+  --bg:#0d1117; --surf:#12171f; --surf2:#1a2029; --line:#252d38;
+  --tx:#e8edf4; --mut:#7d8797; --dim:#4d5765;
+  --hot:#e84a3a; --warm:#e0a030; --cool:#3f9d74; --info:#4f8fd0;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;
+  --safe-t:env(safe-area-inset-top,0px); --safe-b:env(safe-area-inset-bottom,0px);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--sans);overflow:hidden;-webkit-font-smoothing:antialiased}
+#escena{position:fixed;inset:0}
+#escena canvas{display:block;touch-action:none}
+#etiquetas{position:fixed;inset:0;pointer-events:none}
+
+/* etiqueta flotante sobre cada mesa ocupada */
+.lbl{
+  pointer-events:auto; cursor:pointer; white-space:nowrap;
+  background:rgba(18,23,31,.84); border:1px solid var(--line); border-radius:10px; padding:8px 10px;
+  backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); transition:border-color .16s;
+}
+.lbl:hover,.lbl.on{border-color:var(--mut)}
+.lbl .nm{font-weight:650;font-size:13px;letter-spacing:-.2px}
+.lbl .row{display:flex;align-items:center;gap:6px;margin-top:4px}
+.lbl .mod{font:600 9.5px var(--mono);color:var(--dim);background:var(--surf2);padding:2px 6px;border-radius:4px}
+.lbl .dot{width:6px;height:6px;border-radius:50%;background:var(--dim);flex:none}
+.lbl .met{font:10.5px var(--mono);color:var(--mut);margin-top:5px}
+
+/* placa sobre la puerta de cada despacho */
+.placa{
+  pointer-events:none; white-space:nowrap; font:600 10.5px var(--mono); letter-spacing:.6px; text-transform:uppercase;
+  color:var(--mut); background:rgba(18,23,31,.84); border:1px solid var(--line); padding:5px 9px; border-radius:6px;
+}
+.placa b{color:var(--tx)}
+.placa i{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--dim);margin-left:7px;vertical-align:1px}
+.placa.viva i{background:var(--cool)}
+.placa.tuya i{background:var(--hot)}
+
+/* tu personaje */
+.yo{pointer-events:none;font:700 10px var(--sans);letter-spacing:1px;text-transform:uppercase;color:#fff;background:var(--hot);padding:3px 8px;border-radius:999px}
+
+header{
+  position:fixed; top:0; left:0; right:0; z-index:5; display:flex; align-items:center; gap:12px;
+  padding:calc(var(--safe-t) + 12px) 16px 14px; pointer-events:none;
+  background:linear-gradient(rgba(13,17,23,.9),rgba(13,17,23,0));
+}
+header a{pointer-events:auto;display:flex;align-items:center;gap:3px;color:var(--mut);text-decoration:none;font:600 12.5px var(--sans)}
+header a:hover{color:var(--tx)}
+header a svg{width:16px;height:16px}
+header h1{font-size:17px;font-weight:680;letter-spacing:-.4px}
+header h1 b{color:var(--hot);font-weight:680}
+.stamp{margin-left:auto;font:500 11px/1 var(--mono);color:var(--dim)}
+
+.pill{
+  position:fixed; bottom:calc(var(--safe-b) + 18px); z-index:5; pointer-events:none;
+  font:11.5px var(--mono); color:var(--dim); background:rgba(18,23,31,.72); border:1px solid var(--line);
+  padding:7px 12px; border-radius:999px;
+}
+.pill:empty{display:none}
+#zona{left:16px; font-weight:600; letter-spacing:.6px; text-transform:uppercase; font-size:11px}
+#zona b{color:var(--tx)}
+#ayuda{left:50%; transform:translateX(-50%); transition:opacity .6s}
+#ayuda.off{opacity:0}
+
+aside{
+  position:fixed; top:calc(var(--safe-t) + 66px); right:16px; width:300px; z-index:6;
+  background:var(--surf); border:1px solid var(--line); border-radius:16px; padding:16px;
+  transform:translateX(24px); opacity:0; pointer-events:none; transition:.28s cubic-bezier(.22,1,.36,1);
+}
+aside.on{transform:none;opacity:1;pointer-events:auto}
+aside .top{display:flex;align-items:center;gap:9px}
+aside .nm{font-weight:650;font-size:16px;letter-spacing:-.2px}
+aside .mod{font:600 10px var(--mono);color:var(--dim);background:var(--surf2);padding:3px 7px;border-radius:5px}
+aside .cerrar{margin-left:auto;background:none;border:0;color:var(--mut);cursor:pointer;width:26px;height:26px;display:grid;place-items:center;border-radius:7px}
+aside .cerrar:hover{background:var(--surf2);color:var(--tx)}
+aside .cerrar svg{width:14px;height:14px}
+aside .estado{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--mut);margin:10px 0 14px}
+aside .estado i{width:8px;height:8px;border-radius:50%;flex:none}
+aside .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px}
+aside .v{font:650 19px/1 var(--sans);font-variant-numeric:tabular-nums}
+aside .k{font-size:10px;color:var(--dim);letter-spacing:.5px;text-transform:uppercase;margin-top:4px}
+aside .pie{font:11px/1.65 var(--mono);color:var(--dim);margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+
+.msg{position:fixed;inset:0;z-index:4;display:grid;place-items:center;text-align:center;color:var(--mut);font-size:13.5px;padding:20px;background:var(--bg)}
+.msg b{display:block;color:var(--tx);font-size:15px;margin-bottom:7px}
+
+@media(max-width:768px){
+  aside{top:auto;right:12px;left:12px;bottom:calc(var(--safe-b) + 12px);width:auto;transform:translateY(24px)}
+  aside.on{transform:none}
+  #ayuda{bottom:calc(var(--safe-b) + 56px);max-width:calc(100% - 32px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+}
+@media(max-width:480px){.lbl{white-space:normal;max-width:132px}.lbl .met{display:none}header h1{font-size:15px}.stamp{display:none}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div id="escena"></div>
+<div id="etiquetas"></div>
+
+<header>
+  <a href="/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>SIMBAI OS</a>
+  <h1>Oficina<b>&nbsp;de agentes</b></h1>
+  <span class="stamp" id="stamp">···</span>
+</header>
+
+<aside id="panel"></aside>
+<div class="pill" id="zona">Pasillo</div>
+<div class="pill" id="ayuda"></div>
+<div class="msg" id="msg"><b>Abriendo la oficina…</b>Cargando la escena 3D</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const titulo = n => n.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+const quieto = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const tactil = matchMedia('(pointer: coarse)').matches;
+
+const COL = {
+  bg:0x0d1117, surf:0x12171f, surf2:0x1a2029, line:0x252d38, dim:0x4d5765, suelo:0x161c26,
+  hot:0xe84a3a, warm:0xe0a030, cool:0x3f9d74, info:0x4f8fd0,
+  madera:0x5a4634, metal:0x2a2f38, tela:0x1f2530, piel:0xd9dee7, papel:0xe8edf4, pared:0x222a36,
+};
+const CSSCOL = { cool:'#3f9d74', warm:'#e0a030', dim:'#4d5765' };
+const CUERPOS = [COL.info, COL.cool, COL.warm, 0x9b6bd6, 0x3fb3c4, 0xd68a3f];
+
+// medidas del edificio (unidades ~ metros)
+const PASILLO = 5, FONDO = 8, ALTO = 1.8, GROSOR = 0.15, PUERTA = 1.9, SEP_MESA = 3.6;
+const RADIO = 0.35, VEL = 3.4, ALCANCE = 2.6;
+
+// `ultima` llega como "YYYY-MM-DD HH:MM" en UTC (ts[:16] del ISO del log).
+function actividad(a){
+  if (!a.ultima) return { clave:'dim', texto:'sin actividad registrada', fecha:null };
+  const fecha = new Date(a.ultima.replace(' ', 'T') + ':00Z');
+  const h = (Date.now() - fecha) / 36e5;
+  const texto = h < 1 ? 'activo hace menos de una hora'
+    : h < 24 ? `activo hace ${Math.round(h)} h`
+    : `última actividad hace ${Math.round(h / 24)} días`;
+  return { clave: h < 24 ? 'cool' : h < 24 * 7 ? 'warm' : 'dim', texto, fecha };
+}
+
+// colisión: el personaje es un círculo de RADIO contra cajas alineadas a los ejes
+function libre(x, z, lista = obstaculos){
+  return !lista.some(o => x + RADIO > o.x0 && x - RADIO < o.x1 && z + RADIO > o.z0 && z - RADIO < o.z1);
+}
+
+if (location.search === '?test'){
+  const hace = n => ({ ultima: new Date(Date.now() - n * 36e5).toISOString().slice(0, 16).replace('T', ' ') });
+  console.assert(actividad(hace(2)).clave === 'cool', 'cool');
+  console.assert(actividad(hace(50)).clave === 'warm', 'warm');
+  console.assert(actividad(hace(24 * 9)).clave === 'dim', 'dim');
+  console.assert(actividad({}).clave === 'dim', 'sin log');
+  const caja = [{ x0:-1, x1:1, z0:-1, z1:1 }];
+  console.assert(!libre(0, 0, caja) && !libre(1.2, 0, caja) && libre(1.5, 0, caja) && libre(0, -1.4, caja), 'colision');
+  console.log('ok actividad y colision');
+}
+
+/* ── escena ─────────────────────────────────────────── */
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
+} catch {
+  $('#msg').innerHTML = '<b>Este navegador no puede abrir la oficina</b>Necesita WebGL.';
+}
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(COL.bg);
+const camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 0.1, 150);
+
+const mat = (color, extra = {}) => new THREE.MeshStandardMaterial({ color, roughness:.85, metalness:.05, ...extra });
+function caja(w, h, d, material, x, y, z, r = 0.02){
+  const m = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 3, r), material);
+  m.position.set(x, y, z);
+  m.castShadow = m.receiveShadow = true;
+  return m;
+}
+// caja alineada a los ejes en coordenadas de mundo a partir de un rectángulo local del objeto
+function aabb(obj, x0, x1, z0, z1){
+  const a = obj.localToWorld(new THREE.Vector3(x0, 0, z0)), b = obj.localToWorld(new THREE.Vector3(x1, 0, z1));
+  return { x0:Math.min(a.x, b.x), x1:Math.max(a.x, b.x), z0:Math.min(a.z, b.z), z1:Math.max(a.z, b.z) };
+}
+
+const madera = mat(COL.madera, { roughness:.6 });
+const metal = mat(COL.metal, { roughness:.4, metalness:.5 });
+const tela = mat(COL.tela, { roughness:.9 });
+const piel = mat(COL.piel, { roughness:.6 });
+const papel = mat(COL.papel, { roughness:.95 });
+const paredMat = mat(COL.pared, { roughness:.95 });
+const papelGeo = new THREE.BoxGeometry(0.3, 0.012, 0.4);
+
+const mesas = [], porNombre = new Map(), despachos = [], paredes = [], obstaculos = [], bloques = [];
+let mesaJefe = null, briefing = null, ultimoAgentes = null;
+const eur = n => new Intl.NumberFormat('es-ES', { maximumFractionDigits:0 }).format(n || 0) + ' €';
+
+/* ── mesa (coordenadas locales: el trabajador mira hacia +z, la puerta) ── */
+function mesa(x, z, i){
+  const g = new THREE.Group();
+  g.position.set(x, 0, z);
+  g.userData.esMesa = true;
+
+  g.add(caja(2.3, 0.08, 1.1, madera, 0, 0.76, 0, 0.03));
+  for (const [px, pz] of [[-1.05, -0.45], [1.05, -0.45], [-1.05, 0.45], [1.05, 0.45]])
+    g.add(caja(0.07, 0.72, 0.07, metal, px, 0.36, pz, 0.01));
+
+  g.add(caja(0.9, 0.55, 0.04, metal, 0, 1.2, 0.3, 0.015));
+  g.add(caja(0.08, 0.16, 0.08, metal, 0, 0.88, 0.3, 0.01));
+  g.add(caja(0.3, 0.02, 0.18, metal, 0, 0.81, 0.28, 0.005));
+  const pantalla = new THREE.Mesh(new THREE.PlaneGeometry(0.82, 0.47),
+    new THREE.MeshStandardMaterial({ color:0x0d1117, emissive:COL.dim, emissiveIntensity:0.08, roughness:.3 }));
+  pantalla.position.set(0, 1.2, 0.279); pantalla.rotation.y = Math.PI;
+  g.add(pantalla);
+  g.add(caja(0.6, 0.025, 0.2, metal, 0, 0.815, -0.15, 0.005));
+
+  g.add(caja(0.04, 0.42, 0.04, metal, 0.85, 1.0, -0.3, 0.01));
+  const lampara = new THREE.Mesh(new THREE.SphereGeometry(0.09, 20, 14),
+    new THREE.MeshStandardMaterial({ color:0x0d1117, emissive:COL.dim, emissiveIntensity:0.15, roughness:.4 }));
+  lampara.position.set(0.85, 1.24, -0.3);
+  g.add(lampara);
+
+  g.add(caja(0.7, 0.08, 0.7, tela, 0, 0.48, -0.95, 0.03));
+  g.add(caja(0.7, 0.7, 0.08, tela, 0, 0.9, -1.27, 0.03));
+  g.add(caja(0.06, 0.44, 0.06, metal, 0, 0.22, -0.95, 0.01));
+  g.add(caja(0.5, 0.03, 0.5, metal, 0, 0.02, -0.95, 0.01));
+
+  const cuerpoMat = mat(CUERPOS[i % CUERPOS.length], { roughness:.7 });
+  const cuerpo = new THREE.Mesh(new THREE.CapsuleGeometry(0.26, 0.42, 6, 16), cuerpoMat);
+  cuerpo.position.set(0, 0.86, -0.92);
+  const cabeza = new THREE.Mesh(new THREE.SphereGeometry(0.21, 24, 18), piel);
+  cabeza.position.set(0, 1.42, -0.92);
+  const brazoGeo = new THREE.CapsuleGeometry(0.07, 0.5, 4, 10);
+  const brazoIzq = new THREE.Mesh(brazoGeo, cuerpoMat);
+  brazoIzq.rotation.x = Math.PI / 2 + 0.3; brazoIzq.position.set(-0.24, 0.9, -0.6);
+  const brazoDer = brazoIzq.clone(); brazoDer.position.x = 0.24;
+  const avatar = new THREE.Group();
+  avatar.add(cuerpo, cabeza, brazoIzq, brazoDer);
+  avatar.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  avatar.visible = false;
+  g.add(avatar);
+
+  const papeles = new THREE.Group(); g.add(papeles);
+  const carpeta = caja(0.28, 0.03, 0.36, mat(COL.hot, { roughness:.7 }), -0.75, 0.81, -0.25, 0.005);
+  carpeta.visible = false;
+  g.add(carpeta);
+
+  const div = document.createElement('div');
+  div.className = 'lbl';
+  div.onclick = e => { e.stopPropagation(); irA(g); };
+  const etiqueta = new CSS2DObject(div);
+  etiqueta.position.set(0, 2.05, -0.92);
+  etiqueta.center.set(0.5, 1);
+  etiqueta.visible = false; // CSS2DRenderer pisa element.style.display en cada frame: se oculta el objeto, no el div
+  g.add(etiqueta);
+
+  Object.assign(g.userData, { pantalla, lampara, avatar, brazos:[brazoIzq, brazoDer], papeles, carpeta, div, etiqueta, datos:null, act:null });
+  mesas.push(g);
+  return g;
+}
+
+// `a` es el agente del endpoint o null si la mesa está libre
+function aplica(g, a){
+  const u = g.userData;
+  if (u.datos) porNombre.delete(u.datos.nombre);
+  u.datos = a; u.act = a ? actividad(a) : null;
+  u.etiqueta.visible = !!a;
+  u.avatar.visible = !!a;
+  u.papeles.clear();
+
+  // ponytail: las luces solo existen en mesas ocupadas; cada PointLight encarece todos los materiales
+  if (a && !u.luzLamp){
+    u.luzLamp = new THREE.PointLight(0xffffff, 0, 5, 2); u.luzLamp.position.set(0.85, 1.3, -0.3);
+    u.luzPantalla = new THREE.PointLight(0xffffff, 0, 3, 2); u.luzPantalla.position.set(0, 1.25, -0.1);
+    g.add(u.luzLamp, u.luzPantalla);
+  }
+  if (!a){
+    if (u.luzLamp){ g.remove(u.luzLamp, u.luzPantalla); u.luzLamp = u.luzPantalla = null; }
+    u.pantalla.material.emissive.setHex(COL.dim); u.pantalla.material.emissiveIntensity = 0.08;
+    u.lampara.material.emissive.setHex(COL.dim); u.lampara.material.emissiveIntensity = 0.15;
+    u.carpeta.visible = false;
+    return;
+  }
+
+  porNombre.set(a.nombre, g);
+  const color = new THREE.Color(COL[u.act.clave]), vivo = u.act.clave !== 'dim';
+  u.pantalla.material.emissive.copy(color);
+  u.pantalla.material.emissiveIntensity = u.brilloBase = vivo ? 1.4 : 0.35;
+  u.lampara.material.emissive.copy(color);
+  u.lampara.material.emissiveIntensity = vivo ? 1.6 : 0.5;
+  u.luzLamp.color.copy(color); u.luzLamp.intensity = vivo ? 4 : 0.6;
+  u.luzPantalla.color.copy(color); u.luzPantalla.intensity = vivo ? 2.5 : 0.2;
+  u.carpeta.visible = (a.incompletas || 0) > 0;
+
+  // una hoja por cada 6 conversaciones: se ve quién trabaja más sin leer números
+  const n = Math.min(10, Math.ceil((a.conversaciones || 0) / 6));
+  for (let k = 0; k < n; k++){
+    const p = new THREE.Mesh(papelGeo, papel);
+    p.position.set(-0.8 + Math.sin(k * 7.3) * 0.015, 0.806 + k * 0.013, 0.15 + Math.cos(k * 5.1) * 0.015);
+    p.rotation.y = Math.sin(k * 3.7) * 0.12;
+    p.castShadow = p.receiveShadow = true;
+    u.papeles.add(p);
+  }
+
+  u.div.innerHTML = `
+    <div class="nm">${esc(titulo(a.nombre))}</div>
+    <div class="row"><span class="mod">${esc((a.modelo || 'sin uso').replace('claude-', ''))}</span><span class="dot" style="background:${CSSCOL[u.act.clave]}"></span></div>
+    <div class="met">${a.conversaciones} conv · ${a.coste_medio} USD/conv</div>`;
+}
+
+/* ── despacho (local: puerta en +z) ─────────────────── */
+function pared(g, w, d, x, z){
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, ALTO, d), paredMat);
+  m.position.set(x, ALTO / 2, z);
+  m.castShadow = m.receiveShadow = true;
+  g.add(m);
+  paredes.push({ m, w, d });
+}
+
+function despacho(cfg, ancho){
+  const g = new THREE.Group();
+  const W = ancho, D = FONDO;
+
+  const suelo = new THREE.Mesh(new THREE.PlaneGeometry(W, D), mat(COL.suelo, { roughness:.95 }));
+  suelo.rotation.x = -Math.PI / 2; suelo.position.y = 0.002; suelo.receiveShadow = true;
+  g.add(suelo);
+
+  pared(g, W + GROSOR, GROSOR, 0, -D / 2);
+  pared(g, GROSOR, D, -W / 2, 0);
+  pared(g, GROSOR, D, W / 2, 0);
+  const hoja = (W - PUERTA) / 2;
+  pared(g, hoja, GROSOR, -(PUERTA + hoja) / 2, D / 2);
+  pared(g, hoja, GROSOR, (PUERTA + hoja) / 2, D / 2);
+
+  const div = document.createElement('div');
+  div.className = 'placa';
+  const placa = new CSS2DObject(div);
+  placa.position.set(0, ALTO + 0.55, D / 2);
+  placa.center.set(0.5, 1);
+  g.add(placa);
+
+  const propias = [];
+  if (cfg.tuyo) interiorJefe(g, W, D);
+  else {
+    const n = Math.max(cfg.mesas || 2, (cfg.agentes || []).length);
+    for (let i = 0; i < n; i++){
+      const m = mesa((i - (n - 1) / 2) * SEP_MESA, -1.5, mesas.length);
+      g.add(m); propias.push(m);
+    }
+  }
+  Object.assign(g.userData, { nombre:cfg.nombre, tuyo:!!cfg.tuyo, div, mesas:propias, W, D });
+  despachos.push(g);
+  return g;
+}
+
+// tu mesa de dirección: sillón detrás, dos sillas de visita delante, lámpara roja y una planta
+function interiorJefe(g, W, D){
+  const roble = mat(0x3e2c22, { roughness:.55 });
+  const m = new THREE.Group(); m.position.set(0, 0, -1.6); m.userData.jefe = true;
+  m.add(caja(3.2, 0.09, 1.3, roble, 0, 0.76, 0, 0.03));
+  for (const [x, z] of [[-1.5, -0.55], [1.5, -0.55], [-1.5, 0.55], [1.5, 0.55]]) m.add(caja(0.08, 0.72, 0.08, metal, x, 0.36, z, 0.01));
+  m.add(caja(1.0, 0.6, 0.04, metal, -0.3, 1.22, 0.25, 0.015));
+  m.add(caja(0.08, 0.16, 0.08, metal, -0.3, 0.88, 0.25, 0.01));
+  const pantalla = new THREE.Mesh(new THREE.PlaneGeometry(0.92, 0.52),
+    new THREE.MeshStandardMaterial({ color:0x0d1117, emissive:COL.hot, emissiveIntensity:.6, roughness:.3 }));
+  pantalla.position.set(-0.3, 1.22, 0.229); pantalla.rotation.y = Math.PI; m.add(pantalla);
+  m.add(caja(0.04, 0.42, 0.04, metal, 1.25, 1.0, -0.3, 0.01));
+  const lampara = new THREE.Mesh(new THREE.SphereGeometry(0.1, 20, 14),
+    new THREE.MeshStandardMaterial({ color:0x0d1117, emissive:COL.hot, emissiveIntensity:1.4, roughness:.4 }));
+  lampara.position.set(1.25, 1.24, -0.3); m.add(lampara);
+  const luz = new THREE.PointLight(COL.hot, 3.5, 6, 2); luz.position.set(1.25, 1.3, -0.3); m.add(luz);
+  m.add(caja(0.8, 0.1, 0.8, tela, 0, 0.5, -1.05, 0.04));
+  m.add(caja(0.8, 0.9, 0.1, tela, 0, 1.0, -1.42, 0.04));
+  m.add(caja(0.06, 0.45, 0.06, metal, 0, 0.22, -1.05, 0.01));
+  for (const x of [-0.9, 0.9]){
+    m.add(caja(0.6, 0.08, 0.6, tela, x, 0.46, 1.25, 0.03));
+    m.add(caja(0.6, 0.6, 0.08, tela, x, 0.82, 1.54, 0.03));
+    m.add(caja(0.06, 0.42, 0.06, metal, x, 0.21, 1.25, 0.01));
+  }
+  g.add(m);
+  const planta = new THREE.Group(); planta.position.set(W / 2 - 0.8, 0, -D / 2 + 0.8);
+  planta.add(caja(0.45, 0.4, 0.45, metal, 0, 0.2, 0, 0.04));
+  const hojas = new THREE.Mesh(new THREE.SphereGeometry(0.42, 16, 12), mat(0x2f7a4f, { roughness:.9 }));
+  hojas.position.y = 0.85; hojas.scale.y = 1.3; hojas.castShadow = true; planta.add(hojas);
+  g.add(planta);
+  bloques.push([m, -1.7, 1.7, -1.5, 0.65], [m, -1.25, -0.55, 0.9, 1.6], [m, 0.55, 1.25, 0.9, 1.6], [planta, -0.35, 0.35, -0.35, 0.35]);
+  mesaJefe = m;
+}
+
+function pintaPlaca(d){
+  if (d.userData.tuyo){
+    d.userData.div.className = 'placa tuya';
+    d.userData.div.innerHTML = `<b>${esc(d.userData.nombre)}</b> · tú<i></i>`;
+    return;
+  }
+  const ocupadas = d.userData.mesas.filter(m => m.userData.datos);
+  const viva = ocupadas.some(m => m.userData.act.clave === 'cool');
+  d.userData.div.className = 'placa' + (viva ? ' viva' : '');
+  d.userData.div.innerHTML = `<b>${esc(d.userData.nombre)}</b> · ${ocupadas.length ? `${ocupadas.length} ${ocupadas.length === 1 ? 'agente' : 'agentes'}` : 'libre'}<i></i>`;
+}
+
+/* ── edificio: pasillo central, despachos alternando norte y sur ── */
+const edificio = new THREE.Group();
+scene.add(edificio);
+let limites = { x0:-10, x1:10, z0:-10, z1:10 };
+
+function construye(cfgs, jefeCfg){
+  const cursor = [0, 0];
+  cfgs.forEach((cfg, i) => {
+    const n = Math.max(cfg.mesas || 2, (cfg.agentes || []).length);
+    const W = Math.max(9, n * SEP_MESA + 2.4);
+    const lado = i % 2; // 0 norte, 1 sur
+    const d = despacho(cfg, W);
+    d.position.set(cursor[lado] + W / 2, 0, (lado ? 1 : -1) * (PASILLO / 2 + FONDO / 2));
+    if (lado) d.rotation.y = Math.PI; // la puerta mira al pasillo también en el lado sur
+    cursor[lado] += W + GROSOR;
+    edificio.add(d);
+  });
+  const largo = Math.max(...cursor, 12);
+
+  // tu despacho cierra el pasillo por el oeste, con la puerta mirando al pasillo
+  const jefe = despacho(jefeCfg, 10);
+  jefe.position.set(-FONDO / 2 - GROSOR, 0, 0); jefe.rotation.y = Math.PI / 2;
+  edificio.add(jefe);
+
+  edificio.position.x = -largo / 2;
+  scene.updateMatrixWorld(true);
+
+  for (const { m, w, d } of paredes) obstaculos.push(aabb(m, -w / 2, w / 2, -d / 2, d / 2));
+  for (const m of mesas) obstaculos.push(aabb(m, -1.25, 1.25, -1.5, 0.65)); // mesa + silla
+  for (const [obj, ...r] of bloques) obstaculos.push(aabb(obj, ...r));
+  for (const d of despachos) d.userData.zona = aabb(d, -d.userData.W / 2, d.userData.W / 2, -d.userData.D / 2, d.userData.D / 2);
+  limites = { x0:-largo / 2 - FONDO - GROSOR - 1, x1:largo / 2 + 1, z0:-(PASILLO / 2 + FONDO + 1), z1:PASILLO / 2 + FONDO + 1 };
+
+  const w = largo + 24, prof = FONDO * 2 + PASILLO + 18;
+  const suelo = new THREE.Mesh(new THREE.PlaneGeometry(w, prof), mat(COL.surf, { roughness:.95 }));
+  suelo.rotation.x = -Math.PI / 2; suelo.receiveShadow = true; suelo.userData.esSuelo = true;
+  const rejilla = new THREE.GridHelper(Math.max(w, prof), Math.max(w, prof), COL.line, COL.surf2);
+  rejilla.position.y = 0.001;
+  scene.add(suelo, rejilla);
+
+  scene.add(new THREE.HemisphereLight(0x9fb3d4, 0x1a2029, 1.9));
+  const sol = new THREE.DirectionalLight(0xdfe7f5, 3.2);
+  sol.position.set(6, 14, 8); sol.castShadow = true;
+  sol.shadow.mapSize.set(2048, 2048);
+  Object.assign(sol.shadow.camera, { left:-largo / 2 - FONDO - 4, right:largo / 2 + 4, top:prof / 2, bottom:-prof / 2, near:1, far:50 });
+  sol.shadow.bias = -0.0005;
+  scene.add(sol);
+  return suelo;
+}
+
+/* ── tu personaje ───────────────────────────────────── */
+const yo = new THREE.Group();
+{
+  const rojo = mat(COL.hot, { roughness:.65 });
+  const cuerpo = new THREE.Mesh(new THREE.CapsuleGeometry(0.26, 0.5, 6, 16), rojo); cuerpo.position.y = 0.95;
+  const cabeza = new THREE.Mesh(new THREE.SphereGeometry(0.22, 24, 18), piel); cabeza.position.y = 1.58;
+  const brazoGeo = new THREE.CapsuleGeometry(0.07, 0.45, 4, 10);
+  const izq = new THREE.Mesh(brazoGeo, rojo); izq.position.set(-0.34, 0.95, 0);
+  const der = izq.clone(); der.position.x = 0.34;
+  yo.add(cuerpo, cabeza, izq, der);
+  yo.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  const div = document.createElement('div'); div.className = 'yo'; div.textContent = 'Tú';
+  const et = new CSS2DObject(div); et.position.y = 2.15; et.center.set(0.5, 1);
+  yo.add(et);
+  yo.userData.brazos = [izq, der];
+  scene.add(yo);
+}
+
+const teclas = new Set();
+const MOV = new Set(['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright']);
+addEventListener('keydown', e => { const k = e.key.toLowerCase(); if (MOV.has(k)){ teclas.add(k); e.preventDefault(); } });
+addEventListener('keyup', e => teclas.delete(e.key.toLowerCase()));
+addEventListener('blur', () => teclas.clear());
+
+let destino = null;
+function irA(g){ destino = g.localToWorld(new THREE.Vector3(0, 0, 1.6)); }
+
+function mueve(dx, dz){
+  const p = yo.position;
+  const nx = THREE.MathUtils.clamp(p.x + dx, limites.x0, limites.x1);
+  if (libre(nx, p.z)) p.x = nx;
+  const nz = THREE.MathUtils.clamp(p.z + dz, limites.z0, limites.z1);
+  if (libre(p.x, nz)) p.z = nz;
+}
+
+/* ── selección por cercanía ─────────────────────────── */
+let sel = null, cerrado = null;
+
+function pintaPanel(g){
+  const a = g.userData.datos, act = g.userData.act;
+  const cuando = act.fecha ? act.fecha.toLocaleString('es-ES', { dateStyle:'short', timeStyle:'short' }) : null;
+  $('#panel').innerHTML = `
+    <div class="top">
+      <span class="nm">${esc(titulo(a.nombre))}</span>
+      <span class="mod">${esc((a.modelo || 'sin uso').replace('claude-', ''))}</span>
+      <button class="cerrar" aria-label="Cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="estado"><i style="background:${CSSCOL[act.clave]}"></i>${esc(act.texto)}</div>
+    <div class="grid">
+      <div><div class="v">${a.conversaciones}</div><div class="k">Conversaciones</div></div>
+      <div><div class="v">${a.turnos}</div><div class="k">Turnos</div></div>
+      <div><div class="v">${a.coste}</div><div class="k">USD total</div></div>
+      <div><div class="v">${a.coste_medio}</div><div class="k">USD / conv</div></div>
+    </div>
+    <div class="pie">
+      ${cuando ? `última conversación: ${esc(cuando)}<br>` : ''}
+      ${a.incompletas ? `${a.incompletas} conversaciones incompletas<br>` : ''}
+      evals: ${a.evals ? 'sí' : 'no'} · agents/${esc(a.nombre)}${a.existe ? '' : ' (carpeta no existe)'}
+    </div>`;
+  $('#panel .cerrar').onclick = () => { cerrado = sel; $('#panel').classList.remove('on'); };
+}
+
+// tu mesa: el briefing del CRM que ya calcula el servidor en /api/acciones
+function pintaPanelJefe(){
+  const b = briefing?.briefing, ag = ultimoAgentes;
+  $('#panel').innerHTML = `
+    <div class="top">
+      <span class="nm">${esc(despachos.at(-1).userData.nombre)}</span>
+      <span class="mod">CRM</span>
+      <button class="cerrar" aria-label="Cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    ${b ? `
+    <div class="estado"><i style="background:${b.vencidos ? CSSCOL.warm : CSSCOL.cool}"></i>${b.vencidos ? `${b.vencidos} seguimientos vencidos` : 'sin seguimientos vencidos'}</div>
+    <div class="grid">
+      <div><div class="v">${b.activos}</div><div class="k">Prospectos activos</div></div>
+      <div><div class="v">${b.frios}</div><div class="k">Fríos, +90 días</div></div>
+      <div><div class="v">${eur(b.valor_activo)}</div><div class="k">Valor activo</div></div>
+      <div><div class="v">${eur(b.ponderado_activo)}</div><div class="k">Ponderado</div></div>
+    </div>
+    <div class="pie">
+      ${b.top?.length ? `mejor puntuados: ${b.top.slice(0, 3).map(t => esc(t.empresa)).join(' · ')}<br>` : ''}
+      ${ag ? `${ag.agentes.length} agentes · ${ag.conversaciones_total} conv · ${ag.coste_total} USD` : ''}
+    </div>`
+    : `<div class="estado"><i style="background:${CSSCOL.dim}"></i>sin datos del CRM: /api/acciones no responde</div>`}`;
+  $('#panel .cerrar').onclick = () => { cerrado = sel; $('#panel').classList.remove('on'); };
+}
+
+function selecciona(g){
+  sel = g;
+  if (g !== cerrado) cerrado = null;
+  for (const m of mesas) m.userData.div.classList.toggle('on', m === g);
+  const abre = !!g && g !== cerrado;
+  $('#panel').classList.toggle('on', abre);
+  if (abre) g.userData.jefe ? pintaPanelJefe() : pintaPanel(g);
+}
+
+/* ── cámara y entrada ───────────────────────────────── */
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.dampingFactor = 0.08;
+controls.enablePan = false;
+controls.minDistance = 4; controls.maxDistance = 26;
+controls.maxPolarAngle = 1.15;
+
+const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
+let bajada = null, suelo = null;
+renderer.domElement.addEventListener('pointerdown', e => { bajada = [e.clientX, e.clientY]; $('#ayuda').classList.add('off'); });
+renderer.domElement.addEventListener('pointerup', e => {
+  if (!bajada || Math.hypot(e.clientX - bajada[0], e.clientY - bajada[1]) > 6) return;
+  ptr.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+  ray.setFromCamera(ptr, camera);
+  const hit = ray.intersectObjects([suelo, ...mesas], true)[0];
+  if (!hit) return;
+  let o = hit.object;
+  while (o && !o.userData.esMesa && !o.userData.esSuelo) o = o.parent;
+  if (o?.userData.esMesa) irA(o);
+  else destino = new THREE.Vector3(hit.point.x, 0, hit.point.z);
+});
+
+const etiquetas = new CSS2DRenderer({ element: $('#etiquetas') });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.3;
+$('#escena').appendChild(renderer.domElement);
+
+function redimensiona(){
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight); etiquetas.setSize(innerWidth, innerHeight);
+}
+addEventListener('resize', redimensiona);
+redimensiona();
+
+/* ── bucle ──────────────────────────────────────────── */
+const reloj = new THREE.Timer();
+const tmp = new THREE.Vector3(), frente = new THREE.Vector3();
+let zonaActual = '';
+
+function bucle(){
+  reloj.update();
+  const t = reloj.getElapsed(), dt = Math.min(reloj.getDelta(), 0.05);
+
+  // movimiento: teclado relativo a la cámara, o hacia el destino tocado
+  let mx = 0, mz = 0;
+  const dx = +(teclas.has('d') || teclas.has('arrowright')) - +(teclas.has('a') || teclas.has('arrowleft'));
+  const dz = +(teclas.has('w') || teclas.has('arrowup')) - +(teclas.has('s') || teclas.has('arrowdown'));
+  if (dx || dz){
+    destino = null;
+    frente.subVectors(controls.target, camera.position).setY(0).normalize();
+    mx = frente.x * dz - frente.z * dx;
+    mz = frente.z * dz + frente.x * dx;
+  } else if (destino){
+    const vx = destino.x - yo.position.x, vz = destino.z - yo.position.z, dist = Math.hypot(vx, vz);
+    if (dist < 0.15) destino = null; else { mx = vx / dist; mz = vz / dist; }
+  }
+  let andando = false;
+  if (mx || mz){
+    const len = Math.hypot(mx, mz);
+    const antesX = yo.position.x, antesZ = yo.position.z;
+    mueve(mx / len * VEL * dt, mz / len * VEL * dt);
+    andando = Math.hypot(yo.position.x - antesX, yo.position.z - antesZ) > 1e-4;
+    if (!andando) destino = null; // bloqueado por una pared o una mesa
+    else yo.rotation.y = Math.atan2(mx, mz);
+  }
+  if (!quieto){
+    const paso = andando ? Math.sin(t * 9) : 0;
+    yo.position.y = andando ? Math.abs(paso) * 0.045 : 0;
+    yo.userData.brazos[0].rotation.x = paso * 0.55;
+    yo.userData.brazos[1].rotation.x = -paso * 0.55;
+  }
+
+  // la cámara sigue al personaje conservando el ángulo y la distancia elegidos
+  tmp.set(yo.position.x, 1, yo.position.z).sub(controls.target).multiplyScalar(0.12);
+  controls.target.add(tmp); camera.position.add(tmp);
+  controls.update();
+
+  // cercanía: la mesa ocupada más próxima dentro del alcance
+  let cerca = null, mejor = ALCANCE;
+  for (const g of [...porNombre.values(), mesaJefe]){
+    g.getWorldPosition(tmp);
+    const d = Math.hypot(tmp.x - yo.position.x, tmp.z - yo.position.z);
+    if (d < mejor){ mejor = d; cerca = g; }
+  }
+  if (cerca !== sel) selecciona(cerca);
+
+  const z = despachos.find(d => { const o = d.userData.zona; return yo.position.x > o.x0 && yo.position.x < o.x1 && yo.position.z > o.z0 && yo.position.z < o.z1; });
+  const nombre = z ? z.userData.nombre : 'Pasillo';
+  if (nombre !== zonaActual){
+    zonaActual = nombre;
+    $('#zona').innerHTML = !z ? 'Pasillo' : z.userData.tuyo ? `<b>${esc(nombre)}</b>` : `Despacho · <b>${esc(nombre)}</b>`;
+  }
+
+  if (!quieto) for (const g of porNombre.values()){
+    const u = g.userData, tecleando = u.act.clave === 'cool';
+    u.avatar.position.y = Math.sin(t * 1.6 + g.position.x) * 0.012;
+    u.brazos[0].position.y = 0.9 + (tecleando ? Math.sin(t * 11 + g.position.x) * 0.012 : 0);
+    u.brazos[1].position.y = 0.9 + (tecleando ? Math.cos(t * 11 + g.position.x) * 0.012 : 0);
+    if (tecleando) u.pantalla.material.emissiveIntensity = u.brilloBase + Math.sin(t * 3.1 + g.position.z) * 0.12;
+  }
+
+  renderer.render(scene, camera);
+  etiquetas.render(scene, camera);
+}
+
+/* ── datos ──────────────────────────────────────────── */
+async function carga(){
+  const r = await fetch('/api/agentes');
+  if (!r.ok) throw new Error(String(r.status));
+  return r.json();
+}
+function sello(d){ $('#stamp').textContent = `${despachos.length} despachos · ${d.agentes.length} agentes · ${d.conversaciones_total} conv · ${d.coste_total} USD`; }
+
+// si la respuesta no es ok se lee igualmente el cuerpo: un fetch sin consumir deja la petición abierta
+const sinCuerpo = r => r.text().then(() => null);
+const cargaBriefing = () => fetch('/api/acciones').then(r => r.ok ? r.json() : sinCuerpo(r)).catch(() => null);
+
+async function principal(){
+  let d, cfgs;
+  try {
+    [d, cfgs, briefing] = await Promise.all([
+      carga(),
+      fetch('despachos.json').then(r => r.ok ? r.json() : sinCuerpo(r)).catch(() => null),
+      cargaBriefing(),
+    ]);
+  } catch {
+    $('#msg').innerHTML = '<b>Sin conexión con el PC</b>La oficina lee /api/agentes del servidor de SIMBAI OS.';
+    return;
+  }
+  ultimoAgentes = d;
+  // sin agentes el edificio se construye igual, con las mesas apagadas
+  if (!Array.isArray(cfgs) || !cfgs.length) cfgs = [{ nombre:'SIMBAI', agentes:d.agentes.map(a => a.nombre) }];
+  const jefeCfg = cfgs.find(c => c.tuyo) || { nombre:'Tu despacho', tuyo:true };
+  cfgs = cfgs.filter(c => !c.tuyo);
+  if (!cfgs.length) cfgs = [{ nombre:'SIMBAI', agentes:[] }];
+
+  // ponytail: los agentes sin despacho asignado van al primero
+  const asignados = new Set(cfgs.flatMap(c => c.agentes || []));
+  const sueltos = d.agentes.map(a => a.nombre).filter(n => !asignados.has(n));
+  if (sueltos.length) (cfgs[0].agentes ??= []).push(...sueltos);
+
+  suelo = construye(cfgs, jefeCfg);
+
+  const datos = new Map(d.agentes.map(a => [a.nombre, a]));
+  despachos.forEach((desp, i) => {
+    if (desp.userData.tuyo){ pintaPlaca(desp); return; }
+    const nombres = cfgs[i].agentes || [];
+    desp.userData.mesas.forEach((m, k) => {
+      const a = nombres[k] ? datos.get(nombres[k]) : null;
+      if (nombres[k] && !a) console.warn(`despachos.json: el agente "${nombres[k]}" no existe en /api/agentes`);
+      aplica(m, a || null);
+    });
+    pintaPlaca(desp);
+  });
+  sello(d);
+
+  // empiezas en tu despacho, delante de tu mesa, mirando a la puerta y al pasillo
+  const jefe = despachos.at(-1);
+  const inicio = jefe.localToWorld(new THREE.Vector3(0, 0, 0.7));
+  const hacia = jefe.localToWorld(new THREE.Vector3(0, 0, 10)).sub(inicio).setY(0).normalize();
+  yo.position.set(inicio.x, 0, inicio.z);
+  yo.rotation.y = Math.atan2(hacia.x, hacia.z);
+  controls.target.set(inicio.x, 1, inicio.z);
+  const lejos = Math.max(1, 0.85 * innerHeight / innerWidth); // en vertical la cámara se aleja para que quepa el despacho
+  camera.position.set(inicio.x - hacia.x * 11 * lejos, 7.5 * lejos, inicio.z - hacia.z * 11 * lejos);
+  controls.update();
+
+  if (location.search === '?test') window.__oficina = {
+    yo,
+    puertaSimbai: despachos[0].localToWorld(new THREE.Vector3(0, 0, FONDO / 2 + 1.6)),
+    mesaSimbai: despachos[0].userData.mesas[0].getWorldPosition(new THREE.Vector3()),
+  };
+
+  $('#ayuda').textContent = tactil
+    ? 'toca el suelo para moverte · acércate a una mesa'
+    : 'WASD o flechas para moverte · clic en el suelo para ir · acércate a una mesa · arrastra para girar la cámara';
+  $('#msg').remove();
+  renderer.setAnimationLoop(bucle);
+
+  // ponytail: el refresco actualiza mesas existentes; un despacho o agente nuevo aparece al recargar
+  setInterval(async () => {
+    try {
+      const [n, b] = await Promise.all([carga(), cargaBriefing()]);
+      ultimoAgentes = n; briefing = b ?? briefing;
+      for (const a of n.agentes){ const g = porNombre.get(a.nombre); if (g) aplica(g, a); }
+      despachos.forEach(pintaPlaca);
+      sello(n);
+      if (sel && $('#panel').classList.contains('on')) sel.userData.jefe ? pintaPanelJefe() : pintaPanel(sel);
+    } catch { /* el siguiente intento lo recupera */ }
+  }, 30_000);
+}
+if (renderer) principal();
+</script>
+</body>
+</html>

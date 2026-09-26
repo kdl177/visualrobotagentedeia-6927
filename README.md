@@ -1,3 +1,12 @@
+# Visual robot: agente de IA
+
+Dos oficinas 3D para ver agentes de IA trabajando:
+
+- **[`oficina-simbai/`](oficina-simbai/)**: la oficina de SIMBAI. Un HTML con Three.js y un servidor Python de 80 líneas, sin build. Lee los logs reales de tus agentes y los pone a trabajar en despachos; tú los recorres con tu personaje. Cómo arrancarla, en su [README](oficina-simbai/README.md).
+- **`packages/web`**: prototipo generado con Runable en React Three Fiber, con un personaje agente, HUD y chat de muestra. Se arranca con Bun, como describe la plantilla de abajo. Cómo embeberlo, en [EMBED.md](EMBED.md); diseño, en [design.md](design.md).
+
+---
+
 # App template
 
 Runable copies this Bun and Turborepo project into each new sandbox.
