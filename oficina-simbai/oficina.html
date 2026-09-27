@@ -123,6 +123,7 @@ aside .pie{font:11px/1.7 var(--mono);color:var(--mut);margin-top:14px;padding-to
 .chat form button svg{width:16px;height:16px}
 .chat form button:disabled,.chat textarea:disabled{opacity:.5;cursor:default}
 .chat .nota{font-size:10.5px;color:var(--mut);margin-top:8px;line-height:1.5}
+.chat .nota code{display:block;margin:6px 0;padding:7px 9px;border-radius:8px;background:rgba(246,235,218,.08);color:var(--cream);font:10.5px/1.5 var(--mono);user-select:all;word-break:break-all}
 .bocadillo{pointer-events:none;max-width:230px;padding:9px 12px;border-radius:14px;border-bottom-left-radius:4px;background:var(--cream);color:var(--night);font:400 12.5px/1.4 var(--body);white-space:normal;box-shadow:0 12px 30px -12px rgba(0,0,0,.6)}
 
 @media(max-width:768px){
@@ -767,7 +768,7 @@ function pintaPanel(g){
         <button type="submit" aria-label="Enviar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
       </form>
       <div class="nota" id="nota"></div>`
-      : '<div class="nota">Sin token para hablar: abre SIMBAI OS con tu enlace en este navegador y vuelve a la oficina.</div>'}
+      : `<div class="nota">Este navegador no tiene el token del chat. En el PC, abre PowerShell y ejecuta:<br><code>$tk=(Get-Content Apps\\simbai-os\\.token -Raw).Trim(); Start-Process "http://localhost:8790/oficina.html?tk=$tk"</code><br>Se guarda una vez y ya no hace falta más.</div>`}
     </div>`;
   $('#panel .cerrar').onclick = () => { cerrado = sel; $('#panel').classList.remove('on'); };
   $('#panel .motores')?.querySelectorAll('button').forEach(b => b.onclick = () => { c.motor = b.dataset.motor; pintaHilo(a.nombre); });
@@ -791,8 +792,11 @@ const TK = (() => {
   try { return localStorage.getItem('simbai_tk') || ''; } catch { return ''; }
 })();
 const charlas = new Map(); // agente → conversación viva mientras la oficina esté abierta
+let localListo = false;    // hay un modelo de Ollama levantado (/api/modelos); si no, el chat va por Claude
+const cargaModelos = () => fetch('/api/modelos').then(r => r.ok ? r.json() : sinCuerpo(r)).catch(() => null)
+  .then(m => { localListo = Array.isArray(m) && m.some(x => x.tipo === 'ollama' && x.listo); });
 function charla(nombre){
-  if (!charlas.has(nombre)) charlas.set(nombre, { sesion:'oficina-' + Date.now().toString(36), turnos:[], motor:'local', pensando:false });
+  if (!charlas.has(nombre)) charlas.set(nombre, { sesion:'oficina-' + Date.now().toString(36), turnos:[], motor: localListo ? 'local' : 'claude', pensando:false });
   return charlas.get(nombre);
 }
 function pintaHilo(nombre){
@@ -803,13 +807,16 @@ function pintaHilo(nombre){
     : `<div class="m ${t.tipo}">${esc(t.texto)}</div>` + (t.tipo === 'el' ? `<div class="meta">${t.motor === 'local' ? 'local · gratis' : `${t.coste ?? '?'} USD`}${t.ms ? ` · ${Math.round(t.ms / 1000)} s` : ''}</div>` : '')
   ).join('') + (c.pensando ? '<div class="m el"><span class="dots">Pensando</span></div>' : '');
   hilo.scrollTop = hilo.scrollHeight;
+  if (!localListo && c.motor === 'local') c.motor = 'claude';
+  const bl = $('#panel .motores button[data-motor=local]');
+  if (bl){ bl.disabled = !localListo; bl.textContent = localListo ? 'Local · gratis' : 'Local · Ollama apagado'; }
   $('#panel .motores')?.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.motor === c.motor));
   const ta = $('#texto'), bt = $('#envio button');
   if (ta){ ta.disabled = c.pensando; bt.disabled = c.pensando; }
   const nota = $('#nota');
   if (nota) nota.textContent = c.motor === 'local'
     ? 'Modelo local: gratis y no sale de tu PC, pero tarda alrededor de un minuto. Queda en el log del agente.'
-    : 'Conversación real con Claude: unos 0,04 USD por mensaje. Queda en el log del agente.';
+    : (localListo ? '' : 'Ollama está apagado: arráncalo para hablar gratis en local. ') + 'Conversación real con Claude: unos 0,04 USD por mensaje. Queda en el log del agente.';
 }
 async function enviar(g){
   const a = g.userData.datos, c = charla(a.nombre), ta = $('#texto');
@@ -1043,6 +1050,7 @@ async function principal(){
     carga().catch(() => { conectado = false; return { agentes:[], conversaciones_total:0, coste_total:0 }; }),
     fetch('despachos.json').then(r => r.ok ? r.json() : sinCuerpo(r)).catch(() => null),
     cargaBriefing(),
+    cargaModelos(),
   ]);
   ultimoAgentes = d;
   if (!conectado) $('#aviso').textContent = 'No llego a los agentes: la oficina se muestra sin datos';
@@ -1094,8 +1102,9 @@ async function principal(){
   // ponytail: el refresco actualiza mesas existentes; un despacho o agente nuevo aparece al recargar
   setInterval(async () => {
     try {
-      const [n, b] = await Promise.all([carga(), cargaBriefing()]);
+      const [n, b] = await Promise.all([carga(), cargaBriefing(), cargaModelos()]);
       ultimoAgentes = n; briefing = b ?? briefing;
+      if (sel?.userData.datos && $('#panel').classList.contains('on')) pintaHilo(sel.userData.datos.nombre); // por si Ollama ha arrancado
       $('#aviso').textContent = '';
       const datosN = new Map(n.agentes.map(a => [a.nombre, a]));
       for (const g of mesas) if (g.userData.nombre) aplica(g, datosN.get(g.userData.nombre) || null, g.userData.nombre);
