@@ -81,6 +81,7 @@ footer{position:fixed;left:24px;right:24px;bottom:calc(var(--safe-b) + 18px);z-i
 aside{
   position:fixed; top:calc(var(--safe-t) + 84px); right:24px; width:min(330px,calc(100vw - 48px)); z-index:6;
   padding:18px; border-radius:22px; box-shadow:0 30px 60px -30px rgba(0,0,0,.8);
+  max-height:calc(100vh - var(--safe-t) - 110px); overflow-y:auto;
   transform:translateX(24px); opacity:0; pointer-events:none; transition:.28s cubic-bezier(.22,1,.36,1);
 }
 aside.on{transform:none;opacity:1;pointer-events:auto}
@@ -100,11 +101,35 @@ aside .pie{font:11px/1.7 var(--mono);color:var(--mut);margin-top:14px;padding-to
 .msg{position:fixed;inset:0;z-index:4;display:grid;place-items:center;text-align:center;color:var(--mut);font-size:13.5px;padding:20px;background:var(--night)}
 .msg b{display:block;font-family:var(--display);color:var(--cream);font-size:18px;margin-bottom:6px}
 
+/* chat con el agente, dentro de su ficha */
+.chat{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.chat .hilo{display:flex;flex-direction:column;gap:8px;max-height:200px;overflow-y:auto;padding-right:2px}
+.chat .hilo:empty{display:none}
+.chat .m{max-width:88%;padding:9px 12px;border-radius:14px;font-size:12.5px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
+.chat .m.mio{align-self:flex-end;background:var(--coral);color:var(--night);border-bottom-right-radius:5px}
+.chat .m.el{align-self:flex-start;background:rgba(246,235,218,.1);border-bottom-left-radius:5px}
+.chat .m.err{align-self:stretch;background:rgba(255,107,74,.16);border:1px solid rgba(255,107,74,.4);font-size:12px}
+.chat .meta{align-self:flex-start;font:10.5px var(--mono);color:var(--mut);margin-top:-4px}
+.chat .dots::after{content:'…';display:inline-block;width:1.2em;text-align:left;animation:dots 1.2s steps(4,end) infinite}
+@keyframes dots{0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}}
+.chat .motores{display:flex;gap:6px;margin-top:10px}
+.chat .motores button{flex:1;background:none;border:1px solid rgba(246,235,218,.18);color:var(--mut);border-radius:999px;padding:6px 10px;font:500 11px var(--body);cursor:pointer;white-space:nowrap}
+.chat .motores button.on{background:var(--cream);color:var(--night);border-color:var(--cream)}
+.chat form{display:flex;gap:8px;margin-top:8px;align-items:flex-end}
+.chat textarea{flex:1;resize:none;background:rgba(246,235,218,.08);border:1px solid var(--line);border-radius:14px;color:var(--cream);font:400 13px/1.4 var(--body);padding:9px 12px;outline:none;min-height:38px;max-height:96px}
+.chat textarea:focus{border-color:rgba(246,235,218,.4)}
+.chat textarea::placeholder{color:var(--mut)}
+.chat form button{width:38px;height:38px;border-radius:50%;border:0;background:var(--coral);color:var(--night);cursor:pointer;flex:none;display:grid;place-items:center}
+.chat form button svg{width:16px;height:16px}
+.chat form button:disabled,.chat textarea:disabled{opacity:.5;cursor:default}
+.chat .nota{font-size:10.5px;color:var(--mut);margin-top:8px;line-height:1.5}
+.bocadillo{pointer-events:none;max-width:230px;padding:9px 12px;border-radius:14px;border-bottom-left-radius:4px;background:var(--cream);color:var(--night);font:400 12.5px/1.4 var(--body);white-space:normal;box-shadow:0 12px 30px -12px rgba(0,0,0,.6)}
+
 @media(max-width:768px){
   header{left:16px;right:16px}
   .brand__sub{display:none}
   footer{left:16px;right:16px;flex-wrap:wrap}
-  aside{top:auto;right:16px;left:16px;bottom:calc(var(--safe-b) + 66px);width:auto;transform:translateY(24px)}
+  aside{top:auto;right:16px;left:16px;bottom:calc(var(--safe-b) + 66px);width:auto;max-height:70vh;transform:translateY(24px)}
   aside.on{transform:none}
 }
 @media(max-width:480px){.lbl{white-space:normal;max-width:140px}.lbl .met{display:none}.status{display:none}.brand__name{font-size:17px}}
@@ -301,6 +326,8 @@ function animaRobot(r, t, dt, opts){
   u.manos[1].position.y = Math.sin(t * 2.6 * s + u.fase + Math.PI / 2) * amp - 0.1;
   u.nucleo.scale.setScalar(1 + Math.sin(t * 3 * s) * 0.14);
   u.luz.intensity = (2.2 + Math.sin(t * 3 * s) * 0.7) * u.factor;
+  u.boca.scale.y += ((opts.habla ? 0.5 + Math.abs(Math.sin(t * 12)) * 1.6 : 0.45) - u.boca.scale.y) * 0.3;
+  u.cabeza.rotation.x += ((opts.piensa ? -0.14 : 0) - u.cabeza.rotation.x) * 0.08;
   let giro = 0;
   if (opts.mira){
     const p = r.worldToLocal(opts.mira.clone());
@@ -459,8 +486,13 @@ function mesa(x, z){
   etiqueta.center.set(0.5, 1);
   etiqueta.visible = false; // CSS2DRenderer pisa element.style.display en cada frame: se oculta el objeto, no el div
   g.add(etiqueta);
+  // bocadillo con la respuesta cuando el agente habla
+  const bdiv = document.createElement('div'); bdiv.className = 'bocadillo';
+  const bocadillo = new CSS2DObject(bdiv);
+  bocadillo.position.set(0.55, 1.9, -0.95); bocadillo.center.set(0, 1); bocadillo.visible = false;
+  g.add(bocadillo);
 
-  Object.assign(g.userData, { pantalla:mon.userData.pantalla, barras:mon.userData.barras, cabezal:lamp.userData.cabezal, silla:asiento, robot:rob, papeles, carpeta, div, etiqueta, datos:null, act:null, nombre:null });
+  Object.assign(g.userData, { pantalla:mon.userData.pantalla, barras:mon.userData.barras, cabezal:lamp.userData.cabezal, silla:asiento, robot:rob, papeles, carpeta, div, etiqueta, bocadillo, datos:null, act:null, nombre:null, animo:null, animoHasta:0 });
   mesas.push(g);
   return g;
 }
@@ -485,7 +517,7 @@ function aplica(g, a, nombre = a?.nombre){
     return;
   }
   porNombre.set(a.nombre, g);
-  colorea(u.robot, ESTADO[u.act.clave], u.act.clave === 'dim' ? 0.45 : 1);
+  if (!u.animo) colorea(u.robot, ESTADO[u.act.clave], u.act.clave === 'dim' ? 0.45 : 1); // si está pensando o hablando conserva ese color
 
   // una hoja por cada 6 conversaciones: se ve quién trabaja más sin leer números
   const n = Math.min(10, Math.ceil((a.conversaciones || 0) / 6));
@@ -674,7 +706,10 @@ scene.add(yo);
 
 const teclas = new Set();
 const MOV = new Set(['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright']);
-addEventListener('keydown', e => { const k = e.key.toLowerCase(); if (MOV.has(k)){ teclas.add(k); e.preventDefault(); } });
+addEventListener('keydown', e => {
+  if (e.target.closest?.('input,textarea,select')) return; // escribiendo al agente no se mueve el personaje
+  const k = e.key.toLowerCase(); if (MOV.has(k)){ teclas.add(k); e.preventDefault(); }
+});
 addEventListener('keyup', e => teclas.delete(e.key.toLowerCase()));
 addEventListener('blur', () => teclas.clear());
 
@@ -693,15 +728,10 @@ function mueve(dx, dz){
 let sel = null, cerrado = null;
 const botonCerrar = '<button class="cerrar" aria-label="Cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>';
 
-function pintaPanel(g){
+function metricas(g){
   const a = g.userData.datos, act = g.userData.act;
   const cuando = act.fecha ? act.fecha.toLocaleString('es-ES', { dateStyle:'short', timeStyle:'short' }) : null;
-  $('#panel').innerHTML = `
-    <div class="top">
-      <span class="nm">${esc(titulo(a.nombre))}</span>
-      <span class="mod">${esc((a.modelo || 'sin uso').replace('claude-', ''))}</span>
-      ${botonCerrar}
-    </div>
+  return `
     <div class="estado"><i style="background:${CSSCOL[act.clave]};color:${CSSCOL[act.clave]}"></i>${esc(act.texto)}</div>
     <div class="grid">
       <div><div class="v">${a.conversaciones}</div><div class="k">Conversaciones</div></div>
@@ -714,7 +744,116 @@ function pintaPanel(g){
       ${a.incompletas ? `${a.incompletas} conversaciones incompletas<br>` : ''}
       evals: ${a.evals ? 'sí' : 'no'} · agents/${esc(a.nombre)}${a.existe ? '' : ' (carpeta no existe)'}
     </div>`;
+}
+
+function pintaPanel(g){
+  const a = g.userData.datos, c = charla(a.nombre);
+  $('#panel').innerHTML = `
+    <div class="top">
+      <span class="nm">${esc(titulo(a.nombre))}</span>
+      <span class="mod">${esc((a.modelo || 'sin uso').replace('claude-', ''))}</span>
+      ${botonCerrar}
+    </div>
+    <div id="metricas">${metricas(g)}</div>
+    <div class="chat">
+      <div class="hilo" id="hilo"></div>
+      ${TK ? `
+      <div class="motores">
+        <button type="button" data-motor="local">Local · gratis</button>
+        <button type="button" data-motor="claude">Claude · ~0,05 USD</button>
+      </div>
+      <form id="envio">
+        <textarea id="texto" rows="1" placeholder="Habla con ${esc(titulo(a.nombre))}…"></textarea>
+        <button type="submit" aria-label="Enviar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+      </form>
+      <div class="nota" id="nota"></div>`
+      : '<div class="nota">Sin token para hablar: abre SIMBAI OS con tu enlace en este navegador y vuelve a la oficina.</div>'}
+    </div>`;
   $('#panel .cerrar').onclick = () => { cerrado = sel; $('#panel').classList.remove('on'); };
+  $('#panel .motores')?.querySelectorAll('button').forEach(b => b.onclick = () => { c.motor = b.dataset.motor; pintaHilo(a.nombre); });
+  const form = $('#envio');
+  if (form){
+    form.onsubmit = e => { e.preventDefault(); enviar(g); };
+    $('#texto').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); enviar(g); } };
+  }
+  pintaHilo(a.nombre);
+}
+
+/* ── hablar con el agente: mismo /api/hablar y mismo token que la PWA de SIMBAI OS ── */
+// el token llega en la URL una vez (?tk=…) y queda en localStorage con la misma clave que la PWA, que comparte origen
+const TK = (() => {
+  const u = new URL(location.href), t = u.searchParams.get('tk');
+  if (t){
+    try { localStorage.setItem('simbai_tk', t); } catch {}
+    u.searchParams.delete('tk'); history.replaceState(null, '', u);
+    return t;
+  }
+  try { return localStorage.getItem('simbai_tk') || ''; } catch { return ''; }
+})();
+const charlas = new Map(); // agente → conversación viva mientras la oficina esté abierta
+function charla(nombre){
+  if (!charlas.has(nombre)) charlas.set(nombre, { sesion:'oficina-' + Date.now().toString(36), turnos:[], motor:'local', pensando:false });
+  return charlas.get(nombre);
+}
+function pintaHilo(nombre){
+  const c = charla(nombre), hilo = $('#hilo');
+  if (!hilo) return;
+  hilo.innerHTML = c.turnos.map(t => t.tipo === 'err'
+    ? `<div class="m err">${esc(t.texto)}</div>`
+    : `<div class="m ${t.tipo}">${esc(t.texto)}</div>` + (t.tipo === 'el' ? `<div class="meta">${t.motor === 'local' ? 'local · gratis' : `${t.coste ?? '?'} USD`}${t.ms ? ` · ${Math.round(t.ms / 1000)} s` : ''}</div>` : '')
+  ).join('') + (c.pensando ? '<div class="m el"><span class="dots">Pensando</span></div>' : '');
+  hilo.scrollTop = hilo.scrollHeight;
+  $('#panel .motores')?.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.motor === c.motor));
+  const ta = $('#texto'), bt = $('#envio button');
+  if (ta){ ta.disabled = c.pensando; bt.disabled = c.pensando; }
+  const nota = $('#nota');
+  if (nota) nota.textContent = c.motor === 'local'
+    ? 'Modelo local: gratis y no sale de tu PC, pero tarda alrededor de un minuto. Queda en el log del agente.'
+    : 'Conversación real con Claude: unos 0,04 USD por mensaje. Queda en el log del agente.';
+}
+async function enviar(g){
+  const a = g.userData.datos, c = charla(a.nombre), ta = $('#texto');
+  const texto = ta?.value.trim();
+  if (!texto || c.pensando) return;
+  ta.value = '';
+  c.turnos.push({ tipo:'mio', texto }); c.pensando = true;
+  pintaHilo(a.nombre);
+  animo(g, 'pensando');
+  try {
+    const r = await fetch('/api/hablar', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'X-Token':TK },
+      body:JSON.stringify({ agente:a.nombre, mensaje:texto, sesion:c.sesion, motor:c.motor }),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) c.turnos.push({ tipo:'err', texto:
+      r.status === 401 ? 'Token no válido: abre SIMBAI OS con tu enlace en este navegador y vuelve.'
+      : (r.status === 404 || r.status === 501) ? 'El chat vive en SIMBAI OS (puerto 8790), no en el servidor mínimo.'
+      : d.error || `HTTP ${r.status}` });
+    else { c.turnos.push({ tipo:'el', texto:d.texto, coste:d.coste, ms:d.ms, motor:d.motor }); di(g, d.texto || ''); }
+  } catch {
+    c.turnos.push({ tipo:'err', texto:'Sin conexión con el PC.' });
+  }
+  c.pensando = false;
+  if (c.turnos.at(-1).tipo === 'err') animo(g, null);
+  if (sel === g) pintaHilo(a.nombre); // si te has ido a otra mesa, el hilo se conserva para cuando vuelvas
+}
+// ánimo del robot mientras conversa: pensando (violeta) y hablando (cielo); null vuelve a su estado real
+function animo(g, estado, hasta = 0){
+  const u = g.userData;
+  u.animo = estado; u.animoHasta = hasta;
+  if (estado === 'pensando') colorea(u.robot, PAL.plum, 1);
+  else if (estado === 'hablando') colorea(u.robot, PAL.sky, 1);
+  else {
+    u.bocadillo.visible = false; u.etiqueta.visible = !!u.nombre;
+    if (u.act) colorea(u.robot, ESTADO[u.act.clave], u.act.clave === 'dim' ? 0.45 : 1);
+  }
+}
+function di(g, texto){
+  const u = g.userData;
+  u.bocadillo.element.textContent = texto.length > 160 ? texto.slice(0, 157).trimEnd() + '…' : texto;
+  u.bocadillo.visible = true; u.etiqueta.visible = false;
+  animo(g, 'hablando', reloj.getElapsed() + THREE.MathUtils.clamp(2 + texto.length * 0.045, 3, 10));
 }
 
 // tu mesa: el briefing del CRM que ya calcula el servidor en /api/acciones
@@ -856,8 +995,13 @@ function bucle(){
     for (const g of mesas){
       const u = g.userData;
       if (!u.robot.visible) continue;
+      if (u.animo === 'hablando' && t > u.animoHasta) animo(g, null);
       const activo = u.act?.clave === 'cool';
-      animaRobot(u.robot, t, dt, { s: activo ? 3.4 : u.datos ? 1.4 : 0.6, amp: activo ? 0.26 : 0.07, mira: yo.position });
+      animaRobot(u.robot, t, dt, {
+        s: u.animo === 'pensando' ? 1.7 : u.animo === 'hablando' ? 2.4 : activo ? 3.4 : u.datos ? 1.4 : 0.6,
+        amp: u.animo === 'hablando' ? 0.16 : activo ? 0.26 : 0.07,
+        mira: yo.position, habla: u.animo === 'hablando', piensa: u.animo === 'pensando',
+      });
     }
     for (const gr of graficos) if (gr.visible) for (const b of gr.children){
       if (b.userData.k === undefined) continue;
@@ -957,7 +1101,8 @@ async function principal(){
       for (const g of mesas) if (g.userData.nombre) aplica(g, datosN.get(g.userData.nombre) || null, g.userData.nombre);
       despachos.forEach(pintaPlaca);
       sello(n);
-      if (sel && $('#panel').classList.contains('on')) sel.userData.jefe ? pintaPanelJefe() : pintaPanel(sel);
+      // las métricas se refrescan sin tocar el chat: hay un textarea que puede estar a medio escribir
+      if (sel && $('#panel').classList.contains('on')) sel.userData.jefe ? pintaPanelJefe() : ($('#metricas').innerHTML = metricas(sel));
     } catch { /* el siguiente intento lo recupera */ }
   }, 30_000);
 }

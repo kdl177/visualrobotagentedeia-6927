@@ -58,6 +58,7 @@ Solo se usan `ts`, `modelo`, `turnos`, `costeUsd` e `incompleta`. Si la carpeta 
 - Escritorio: WASD o flechas para moverte, clic en el suelo para ir a un punto, arrastrar para girar la cámara, rueda para acercar.
 - Móvil: toca el suelo para andar, un dedo para girar, dos para acercar.
 - Al acercarte a una mesa ocupada se abre la ficha del agente; al alejarte se cierra. Tocar una etiqueta te lleva andando hasta esa mesa.
+- En SIMBAI OS la ficha incluye un chat real con el agente (motor local gratis o Claude), con el robot pensando y hablando en escena. Con este servidor mínimo el chat avisa de que no está disponible: necesita el puente de agentes y el token de SIMBAI OS.
 
 ## Comprobar
 
