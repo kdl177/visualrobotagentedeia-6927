@@ -836,6 +836,8 @@ async function enviar(g){
     if (!r.ok) c.turnos.push({ tipo:'err', texto:
       r.status === 401 ? 'Token no válido: abre SIMBAI OS con tu enlace en este navegador y vuelve.'
       : (r.status === 404 || r.status === 501) ? 'El chat vive en SIMBAI OS (puerto 8790), no en el servidor mínimo.'
+      // 503: el puente Node se ha caído; start.ps1 lo levanta, pero reinicia todo SIMBAI OS
+      : r.status === 503 ? 'El puente de agentes está parado. En PowerShell: powershell -File Apps\\simbai-os\\start.ps1'
       : d.error || `HTTP ${r.status}` });
     else { c.turnos.push({ tipo:'el', texto:d.texto, coste:d.coste, ms:d.ms, motor:d.motor }); di(g, d.texto || ''); }
   } catch {
