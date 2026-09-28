@@ -1,7 +1,0 @@
-[
-  { "nombre": "Tu despacho", "tuyo": true },
-  { "nombre": "SIMBAI", "agentes": ["captacion-crm", "recepcion-abogados"] },
-  { "nombre": "Despacho 2", "mesas": 2 },
-  { "nombre": "Despacho 3", "mesas": 2 },
-  { "nombre": "Despacho 4", "mesas": 2 }
-]

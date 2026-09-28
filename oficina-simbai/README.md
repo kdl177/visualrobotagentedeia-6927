@@ -1,16 +1,31 @@
-# Oficina SIMBAI: tus agentes de IA como una oficina 3D
+# Oficina SIMBAI: once agentes de IA en una planta 3D
 
-Un edificio cartoon con pasillo y despachos. Cada agente de IA es un robot flotante en su mesa; tú eres el robot coral, recorres la oficina y, al acercarte a alguien, ves qué ha hecho y cuánto ha costado. Los datos salen de los logs reales de los agentes, no hay nada inventado. El personaje, la paleta y el mobiliario vienen del prototipo de Runable de este mismo repo; la mecánica y los datos, de SIMBAI OS.
+Una planta cartoon con cinco despachos de dos puestos y una recepción. Cada agente es un robot flotante cuyo color dice si trabaja, está libre o se ha parado. Tú entras con tu robot coral, te acercas a quien quieras y hablas con la asistenta de recepción.
 
-![Oficina 3D](docs/captura.png)
+![Planta de la oficina](docs/captura.png)
 
-- El color de cada robot es su estado real: mint si ha trabajado en las últimas 24 h, ámbar en la última semana, violeta apagado si hace más o no hay datos. Los robots giran la cabeza hacia ti cuando pasas cerca.
-- Una hoja de papel por cada 6 conversaciones; una carpeta coral si hay conversaciones incompletas.
-- Las mesas sin agente conservan la silla vacía, listas para el siguiente.
-- Tu despacho cierra el pasillo, con rack de servidores, pizarra y estantería. Empiezas en él.
-- Si no hay conexión con los agentes, la oficina se construye igual y los agentes de `despachos.json` aparecen apagados con "sin datos".
+## Los once puestos
 
-Un solo archivo HTML con [Three.js](https://threejs.org/) por CDN. Sin build, sin npm.
+| Despacho | Puestos |
+|---|---|
+| Recepción | asistenta |
+| Mercados | explorador, analista |
+| Desarrollo | constructor, revisor |
+| Automatizaciones | diseñador de flujos, integrador |
+| Visuales | director de arte, maquetador |
+| Auditoría | auditor técnico, auditor de negocio |
+
+Los dos puestos de cada despacho van en L sobre la misma esquina, con una pizarra compartida: el trabajo pasa de uno a otro y la escena lo cuenta.
+
+## Estados
+
+El color se ve desde la vista general, sin acercarse, en el robot y en la baliza de su mesa.
+
+| Estado | Color | Qué significa |
+|---|---|---|
+| trabajando | mint | el agente está ocupado; solo estos se animan |
+| libre | azul cielo | disponible |
+| parado | violeta | el motor local no responde |
 
 ## Ejecutar
 
@@ -18,47 +33,68 @@ Necesita Python 3.10 o superior. Nada más.
 
 ```bash
 cd oficina-simbai
-AGENTES_DIR=/ruta/a/tus/agents python server.py
+python server.py
 ```
 
 En PowerShell:
 
 ```powershell
 cd oficina-simbai
-$env:AGENTES_DIR = "C:\ruta\a\tus\agents"
 python server.py
 ```
 
 Abre `http://localhost:8794`. Variables opcionales: `PUERTO` (8794) y `HOST` (`127.0.0.1`; pon `0.0.0.0` para verla desde el móvil en tu red).
 
-## Qué espera encontrar
+## De dónde vienen los estados
 
-`AGENTES_DIR` es una carpeta con un subdirectorio por agente. Las carpetas que empiezan por `_` o `.` se ignoran. De cada agente se lee `logs/conversaciones.jsonl`, una línea JSON por conversación:
+Con `?estado=` la oficina sondea ese endpoint cada 5 segundos:
 
-```json
-{"ts":"2026-09-24T22:23:54.944Z","modelo":"claude-sonnet-5","turnos":3,"tokensEntrada":16749,"tokensSalida":361,"costeUsd":0.0694,"duracionMs":6257,"incompleta":false}
+```
+http://localhost:8794/?estado=http://localhost:8080/estado.json
 ```
 
-Solo se usan `ts`, `modelo`, `turnos`, `costeUsd` e `incompleta`. Si la carpeta no existe o no hay logs, la oficina se construye igual con las mesas apagadas.
-
-## Despachos
-
-`despachos.json` define los despachos: nombre, agentes asignados y número de mesas. Añadir un despacho es añadir una entrada. Los agentes que no estén asignados a ninguno caen al primero. La entrada con `"tuyo": true` es tu despacho.
+El JSON tiene esta forma. Las claves de `despachos` son los nombres de puesto de la tabla de arriba, y `despacho` es uno de `mercados`, `desarrollo`, `automatizaciones`, `visuales`, `auditoria`, `recepcion`.
 
 ```json
-[
-  { "nombre": "Tu despacho", "tuyo": true },
-  { "nombre": "SIMBAI", "agentes": ["captacion-crm", "recepcion-abogados"] },
-  { "nombre": "Despacho 2", "mesas": 2 }
-]
+{
+  "despachos": {
+    "explorador": {
+      "despacho": "mercados",
+      "situacion": "trabajando",
+      "detalle": "busca oportunidades en hoteles de Málaga",
+      "cuando": "2026-09-28T11:20:00"
+    },
+    "maquetador": {
+      "despacho": "visuales",
+      "situacion": "libre",
+      "detalle": "",
+      "cuando": "2026-09-28T11:18:00"
+    }
+  },
+  "ultimo_cambio": "2026-09-28T11:20:00"
+}
 ```
+
+Un agente que no aparezca se muestra libre. Si el endpoint no responde, la planta sigue en pie con todos libres y un aviso discreto, nunca una pantalla de error. Sin `?estado=` se ven datos de ejemplo con tres agentes trabajando.
+
+## Parámetros de la URL
+
+| Parámetro | Por defecto | Qué hace |
+|---|---|---|
+| `estado` | vacío | URL del JSON de estados |
+| `embed` | `0` | HUD compacto para iframe |
+| `name` | `OFICINA SIMBAI` | nombre en la cabecera |
+| `tagline` | `once agentes, cinco despachos` | subtítulo |
+| `accent` | `%2335E0AE` | color de marca, también el de "trabajando" |
+| `chat` | `1` (`0` si `embed=1`) | panel de conversación en recepción |
+| `labels` | `1` | rótulos de los despachos |
 
 ## Controles
 
-- Escritorio: WASD o flechas para moverte, clic en el suelo para ir a un punto, arrastrar para girar la cámara, rueda para acercar.
-- Móvil: toca el suelo para andar, un dedo para girar, dos para acercar.
-- Al acercarte a una mesa ocupada se abre la ficha del agente; al alejarte se cierra. Tocar una etiqueta te lleva andando hasta esa mesa.
-- En SIMBAI OS la ficha incluye un chat real con el agente (motor local gratis o Claude), con el robot pensando y hablando en escena. Con este servidor mínimo el chat avisa de que no está disponible: necesita el puente de agentes y el token de SIMBAI OS.
+- Clic en un despacho: la cámara se acerca y sale una tarjeta con sus dos agentes, su estado y qué hacen.
+- Clic en recepción: además, el chat con la asistenta.
+- Clic fuera o tecla Escape: vuelta a la vista general.
+- Arrastrar para orbitar, rueda para zoom, WASD o flechas para moverte.
 
 ## Comprobar
 
@@ -66,8 +102,12 @@ Solo se usan `ts`, `modelo`, `turnos`, `costeUsd` e `incompleta`. Si la carpeta 
 python server.py --test
 ```
 
-Y en el navegador, `http://localhost:8794/?test` ejecuta los asserts de actividad y colisión en la consola.
+En el navegador, `?test` ejecuta los asserts de estados y colisión en la consola.
+
+## Rendimiento
+
+Once robots comparten geometría, solo se animan los que trabajan y no hay luces puntuales por personaje. Si aun así la escena baja de 30 fotogramas por segundo, se apagan sombras y se baja la resolución sola.
 
 ## Origen
 
-Es la oficina 3D de SIMBAI OS, el panel interno de [SIMBAI](https://github.com/kdl177), fusionada con el prototipo "AI Office 3D" que Runable generó en `packages/web` (React Three Fiber): de ahí salen el robot, la paleta y los muebles. La página de esa app redirige ahora a esta oficina, que también se copia en `packages/web/public/`. En SIMBAI OS, tu mesa muestra además el briefing del CRM; aquí ese panel indica que no hay datos, porque el servidor mínimo no expone el CRM.
+Es la oficina 3D de SIMBAI OS, el panel interno de [SIMBAI](https://github.com/kdl177), con el robot, la paleta y el mobiliario del prototipo "AI Office 3D" que Runable generó en `packages/web`. El chat de recepción usa el `/api/hablar` de SIMBAI OS, así que con este servidor mínimo avisa de que no está disponible.

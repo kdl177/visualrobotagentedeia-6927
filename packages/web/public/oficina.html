@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Oficina SIMBAI</title>
-<meta name="description" content="Oficina 3D de los agentes de IA de SIMBAI: recorre los despachos, acércate a cada agente robot y ve su actividad y coste, leídos de sus logs.">
+<meta name="description" content="Oficina 3D con once agentes de IA en cinco despachos: recepción reparte el trabajo y cada puesto muestra su estado en tiempo real.">
 <meta name="theme-color" content="#141A2E">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -24,6 +24,7 @@
 :root{
   --night:#141A2E; --navy:#1E2A4A; --navy2:#2C3A61; --cream:#F6EBDA;
   --coral:#FF6B4A; --mint:#35E0AE; --sky:#6EC6FF; --amber:#FFC15E; --plum:#7A5CFF;
+  --marca:#35E0AE;
   --tx:#F6EBDA; --mut:rgba(246,235,218,.55); --line:rgba(246,235,218,.14); --card:rgba(20,26,46,.72);
   --display:"Baloo 2",system-ui,sans-serif; --body:"Poppins",system-ui,sans-serif;
   --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;
@@ -33,38 +34,31 @@
 html,body{height:100%;background:var(--night);color:var(--tx);font-family:var(--body);overflow:hidden;-webkit-font-smoothing:antialiased}
 #escena{position:fixed;inset:0}
 #escena canvas{display:block;touch-action:none}
-#etiquetas{position:fixed;inset:0;pointer-events:none;z-index:1} /* contexto propio: CSS2DRenderer pone z-index altos a cada etiqueta */
+#etiquetas{position:fixed;inset:0;pointer-events:none;z-index:1}
 .vignette{position:fixed;inset:0;pointer-events:none;z-index:2;background:radial-gradient(120% 90% at 50% 45%,transparent 45%,rgba(10,14,26,.72) 100%)}
 .card{background:var(--card);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--line)}
 
-/* etiqueta flotante sobre cada robot */
-.lbl{pointer-events:auto;cursor:pointer;white-space:nowrap;padding:8px 12px;border-radius:14px;transition:border-color .16s}
-.lbl:hover,.lbl.on{border-color:rgba(246,235,218,.42)}
-.lbl .nm{font-family:var(--display);font-weight:700;font-size:14px;letter-spacing:.02em;line-height:1.1}
-.lbl .row{display:flex;align-items:center;gap:7px;margin-top:5px}
-.lbl .mod{font:500 10px var(--body);letter-spacing:.06em;text-transform:uppercase;color:var(--mut);background:rgba(246,235,218,.08);padding:3px 7px;border-radius:6px}
-.lbl .dot{width:7px;height:7px;border-radius:50%;flex:none;box-shadow:0 0 10px currentColor}
-.lbl .met{font:11px var(--mono);color:var(--mut);margin-top:6px}
-
-/* placa sobre la puerta */
-.placa{pointer-events:none;white-space:nowrap;font-family:var(--display);font-weight:700;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--cream);padding:6px 12px;border-radius:999px}
+/* rótulo sobre cada despacho: solo el nombre, el estado va en el color del robot */
+.placa{pointer-events:auto;cursor:pointer;white-space:nowrap;font-family:var(--display);font-weight:700;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--cream);padding:6px 12px;border-radius:999px;transition:border-color .16s}
+.placa:hover,.placa.on{border-color:rgba(246,235,218,.45)}
+.placa b{font-weight:700}
 .placa span{color:var(--mut);font-weight:600}
-.placa i{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--plum);box-shadow:0 0 10px var(--plum);margin-left:8px;vertical-align:1px}
-.placa.viva i{background:var(--mint);box-shadow:0 0 10px var(--mint)}
-.placa.tuya i{background:var(--coral);box-shadow:0 0 10px var(--coral)}
-
+.placa i{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--sky);margin-left:8px;vertical-align:1px;box-shadow:0 0 10px currentColor}
+.placa.activa i{background:var(--marca);box-shadow:0 0 10px var(--marca)}
+.placa.parada i{background:var(--plum);box-shadow:0 0 10px var(--plum)}
 .yo{pointer-events:none;font-family:var(--display);font-weight:800;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--night);background:var(--coral);padding:4px 10px;border-radius:999px;box-shadow:0 8px 20px -8px var(--coral)}
+.bocadillo{pointer-events:none;max-width:230px;padding:9px 12px;border-radius:14px;border-bottom-left-radius:4px;background:var(--cream);color:var(--night);font:400 12.5px/1.4 var(--body);white-space:normal;box-shadow:0 12px 30px -12px rgba(0,0,0,.6)}
 
 header{position:fixed;top:calc(var(--safe-t) + 18px);left:24px;right:24px;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:16px;pointer-events:none}
 .brand{display:flex;align-items:center;gap:12px;pointer-events:auto}
 .brand a{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;color:var(--mut);text-decoration:none}
 .brand a:hover{color:var(--cream)}
 .brand a svg{width:16px;height:16px}
-.brand__mark{width:12px;height:12px;border-radius:50%;background:var(--coral);box-shadow:0 0 16px var(--coral)}
+.brand__mark{width:12px;height:12px;border-radius:50%;background:var(--marca);box-shadow:0 0 16px var(--marca)}
 .brand__name{font-family:var(--display);font-weight:800;font-size:20px;letter-spacing:.06em;line-height:1}
 .brand__sub{margin-top:3px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut)}
 .status{display:flex;align-items:center;gap:9px;padding:9px 16px;border-radius:999px;font-size:13px;font-weight:500;white-space:nowrap}
-.status i{width:9px;height:9px;border-radius:50%;background:var(--dot,var(--plum));box-shadow:0 0 12px var(--dot,var(--plum));animation:pulse 1.8s ease-in-out infinite}
+.status i{width:9px;height:9px;border-radius:50%;background:var(--dot,var(--marca));box-shadow:0 0 12px var(--dot,var(--marca));animation:pulse 1.8s ease-in-out infinite}
 @keyframes pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.25);opacity:.7}}
 #aviso{position:fixed;top:calc(var(--safe-t) + 74px);left:50%;transform:translateX(-50%);z-index:5;font-size:12px;color:var(--amber);padding:7px 14px;border-radius:999px;pointer-events:none;white-space:nowrap}
 #aviso:empty{display:none}
@@ -91,17 +85,17 @@ aside .mod{font:500 10px var(--body);letter-spacing:.06em;text-transform:upperca
 aside .cerrar{margin-left:auto;background:none;border:0;color:var(--mut);cursor:pointer;width:28px;height:28px;display:grid;place-items:center;border-radius:50%}
 aside .cerrar:hover{background:rgba(246,235,218,.1);color:var(--cream)}
 aside .cerrar svg{width:14px;height:14px}
-aside .estado{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--mut);margin:12px 0 14px}
-aside .estado i{width:8px;height:8px;border-radius:50%;flex:none;box-shadow:0 0 10px currentColor}
-aside .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px}
-aside .v{font-family:var(--display);font-weight:700;font-size:22px;line-height:1;font-variant-numeric:tabular-nums}
-aside .k{font-size:10px;color:var(--mut);letter-spacing:.08em;text-transform:uppercase;margin-top:4px}
-aside .pie{font:11px/1.7 var(--mono);color:var(--mut);margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+/* una fila por agente del despacho */
+.puesto{display:flex;gap:10px;padding:12px 0;border-bottom:1px solid var(--line)}
+.puesto:last-of-type{border-bottom:0}
+.puesto i{width:9px;height:9px;border-radius:50%;flex:none;margin-top:5px;box-shadow:0 0 10px currentColor}
+.puesto .rol{font-family:var(--display);font-weight:700;font-size:14px;line-height:1.2}
+.puesto .sit{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin-top:3px}
+.puesto .det{font-size:12.5px;line-height:1.5;margin-top:6px}
+.puesto .cuando{font:10.5px var(--mono);color:var(--mut);margin-top:5px}
+aside .pie{font:11px/1.7 var(--mono);color:var(--mut);margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
 
-.msg{position:fixed;inset:0;z-index:4;display:grid;place-items:center;text-align:center;color:var(--mut);font-size:13.5px;padding:20px;background:var(--night)}
-.msg b{display:block;font-family:var(--display);color:var(--cream);font-size:18px;margin-bottom:6px}
-
-/* chat con el agente, dentro de su ficha */
+/* chat con la asistenta de recepción */
 .chat{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
 .chat .hilo{display:flex;flex-direction:column;gap:8px;max-height:200px;overflow-y:auto;padding-right:2px}
 .chat .hilo:empty{display:none}
@@ -124,7 +118,14 @@ aside .pie{font:11px/1.7 var(--mono);color:var(--mut);margin-top:14px;padding-to
 .chat form button:disabled,.chat textarea:disabled{opacity:.5;cursor:default}
 .chat .nota{font-size:10.5px;color:var(--mut);margin-top:8px;line-height:1.5}
 .chat .nota code{display:block;margin:6px 0;padding:7px 9px;border-radius:8px;background:rgba(246,235,218,.08);color:var(--cream);font:10.5px/1.5 var(--mono);user-select:all;word-break:break-all}
-.bocadillo{pointer-events:none;max-width:230px;padding:9px 12px;border-radius:14px;border-bottom-left-radius:4px;background:var(--cream);color:var(--night);font:400 12.5px/1.4 var(--body);white-space:normal;box-shadow:0 12px 30px -12px rgba(0,0,0,.6)}
+
+.msg{position:fixed;inset:0;z-index:4;display:grid;place-items:center;text-align:center;color:var(--mut);font-size:13.5px;padding:20px;background:var(--night)}
+.msg b{display:block;font-family:var(--display);color:var(--cream);font-size:18px;margin-bottom:6px}
+
+/* modo embed: HUD mínimo para iframe */
+body.embed header{top:12px;left:14px;right:14px}
+body.embed .brand__sub,body.embed footer .hint span,body.embed #zona{display:none}
+body.embed .brand__name{font-size:16px}
 
 @media(max-width:768px){
   header{left:16px;right:16px}
@@ -133,7 +134,15 @@ aside .pie{font:11px/1.7 var(--mono);color:var(--mut);margin-top:14px;padding-to
   aside{top:auto;right:16px;left:16px;bottom:calc(var(--safe-b) + 66px);width:auto;max-height:70vh;transform:translateY(24px)}
   aside.on{transform:none}
 }
-@media(max-width:480px){.lbl{white-space:normal;max-width:140px}.lbl .met{display:none}.status{display:none}.brand__name{font-size:17px}}
+@media(max-width:480px){.status{display:none}.brand__name{font-size:17px}}
+/* En vertical seis rótulos de texto no caben a lo ancho: se quedan en una pastilla con la
+   inicial y el punto de estado. El nombre completo sigue al tocar el despacho. */
+@media(max-aspect-ratio:1/1){
+  .placa{font-size:11px;padding:0;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;position:relative}
+  .placa b,.placa span{display:none}
+  .placa::before{content:attr(data-ini);font-weight:700}
+  .placa i{position:absolute;margin:0;transform:translate(9px,-9px);width:8px;height:8px}
+}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -146,7 +155,7 @@ aside .pie{font:11px/1.7 var(--mono);color:var(--mut);margin-top:14px;padding-to
   <div class="brand">
     <a class="card" href="/" aria-label="Volver a SIMBAI OS"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a>
     <span class="brand__mark"></span>
-    <div><div class="brand__name">OFICINA SIMBAI</div><div class="brand__sub">tus agentes de IA, trabajando</div></div>
+    <div><div class="brand__name" id="marca">OFICINA SIMBAI</div><div class="brand__sub" id="lema">once agentes, cinco despachos</div></div>
   </div>
   <div class="status card" id="estado"><i></i><span>cargando…</span></div>
 </header>
@@ -155,7 +164,7 @@ aside .pie{font:11px/1.7 var(--mono);color:var(--mut);margin-top:14px;padding-to
 <aside id="panel" class="card"></aside>
 
 <footer>
-  <div id="zona" class="card">Pasillo</div>
+  <div id="zona" class="card">Planta</div>
   <div class="hint" id="ayuda"><span></span><button type="button" id="vista">Vista general</button></div>
 </footer>
 <div class="msg" id="msg"><b>Abriendo la oficina…</b>Cargando la escena 3D</div>
@@ -168,49 +177,112 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const titulo = n => n.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+const titulo = n => String(n).replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 const quieto = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const tactil = matchMedia('(pointer: coarse)').matches;
-const eur = n => new Intl.NumberFormat('es-ES', { maximumFractionDigits:0 }).format(n || 0) + ' €';
 
-// paleta cartoon (la misma que el prototipo de Runable en packages/web/src/web/lib/palette.ts)
+/* ── parámetros de URL ──────────────────────────────── */
+const Q = new URLSearchParams(location.search);
+const flag = (n, pd) => Q.has(n) ? Q.get(n) !== '0' : pd;
+const CFG = {
+  embed: flag('embed', false),
+  name: Q.get('name') || 'OFICINA SIMBAI',
+  tagline: Q.get('tagline') || 'once agentes, cinco despachos',
+  accent: /^#[0-9a-f]{3,8}$/i.test(Q.get('accent') || '') ? Q.get('accent') : '#35E0AE',
+  labels: flag('labels', true),
+  estado: Q.get('estado') || '',
+};
+CFG.chat = flag('chat', !CFG.embed);
+if (CFG.embed) document.body.classList.add('embed');
+document.documentElement.style.setProperty('--marca', CFG.accent);
+$('#marca').textContent = CFG.name;
+$('#lema').textContent = CFG.tagline;
+
+/* ── paleta y plantilla de la oficina ───────────────── */
 const PAL = {
-  night:0x141A2E, navy:0x1E2A4A, navy2:0x2C3A61, cream:0xF6EBDA, cream2:0xE4D2BA,
+  night:0x141A2E, navy:0x1E2A4A, navy2:0x2C3A61, cream:0xF6EBDA,
   coral:0xFF6B4A, mint:0x35E0AE, sky:0x6EC6FF, amber:0xFFC15E, plum:0x7A5CFF,
   wood:0xC98A54, wood2:0x9C6437, leaf:0x3FAE72, leaf2:0x58C98A, white:0xFFFFFF,
 };
-const ESTADO = { cool:PAL.mint, warm:PAL.amber, dim:PAL.plum };
-const CSSCOL = { cool:'#35E0AE', warm:'#FFC15E', dim:'#7A5CFF' };
+const MARCA = new THREE.Color(CFG.accent).getHex();
+// trabajando = color de marca; libre = cielo apagado; parado = violeta
+const SIT = {
+  trabajando: { hex:MARCA, css:CFG.accent, factor:1, etiqueta:'Trabajando' },
+  libre:      { hex:PAL.sky, css:'#6EC6FF', factor:.35, etiqueta:'Libre' },
+  parado:     { hex:PAL.plum, css:'#7A5CFF', factor:.5, etiqueta:'Parado' },
+};
+const situacion = s => SIT[s] ? s : 'libre';
 
-// medidas del edificio (unidades ~ metros)
-const PASILLO = 5, FONDO = 8, ALTO = 2.2, GROSOR = 0.15, PUERTA = 1.9, SEP_MESA = 3.6;
-const RADIO = 0.35, VEL = 3.4, ALCANCE = 2.6, ROBOT = 0.62;
+const RECEPCION = { id:'recepcion', nombre:'Recepción', puestos:['asistenta'] };
+const DESPACHOS = [
+  { id:'mercados', nombre:'Mercados', puestos:['explorador', 'analista'] },
+  { id:'desarrollo', nombre:'Desarrollo', puestos:['constructor', 'revisor'] },
+  { id:'automatizaciones', nombre:'Automatizaciones', puestos:['disenador-flujos', 'integrador'] },
+  { id:'visuales', nombre:'Visuales', puestos:['director-arte', 'maquetador'] },
+  { id:'auditoria', nombre:'Auditoría', puestos:['auditor-tecnico', 'auditor-negocio'] },
+];
+const ROL = {
+  asistenta:'Asistenta', explorador:'Explorador', analista:'Analista',
+  constructor:'Constructor', revisor:'Revisor',
+  'disenador-flujos':'Diseñador de flujos', integrador:'Integrador',
+  'director-arte':'Director de arte', maquetador:'Maquetador',
+  'auditor-tecnico':'Auditor técnico', 'auditor-negocio':'Auditor de negocio',
+};
+const EJEMPLO = {
+  despachos: {
+    explorador: { despacho:'mercados', situacion:'trabajando', detalle:'busca oportunidades en hoteles de Málaga', cuando:new Date().toISOString() },
+    maquetador: { despacho:'visuales', situacion:'trabajando', detalle:'monta la landing del despacho de abogados', cuando:new Date().toISOString() },
+    'auditor-tecnico': { despacho:'auditoria', situacion:'trabajando', detalle:'revisa el rendimiento de tres webs de cliente', cuando:new Date().toISOString() },
+    revisor: { despacho:'desarrollo', situacion:'parado', detalle:'el motor local no responde', cuando:new Date().toISOString() },
+    asistenta: { despacho:'recepcion', situacion:'libre', detalle:'', cuando:new Date().toISOString() },
+  },
+  ultimo_cambio: new Date().toISOString(),
+};
 
-// `ultima` llega como "YYYY-MM-DD HH:MM" en UTC (ts[:16] del ISO del log).
-function actividad(a){
-  if (!a.ultima) return { clave:'dim', texto:'sin actividad registrada', fecha:null };
-  const fecha = new Date(a.ultima.replace(' ', 'T') + ':00Z');
-  const h = (Date.now() - fecha) / 36e5;
-  const texto = h < 1 ? 'activo hace menos de una hora'
-    : h < 24 ? `activo hace ${Math.round(h)} h`
-    : `última actividad hace ${Math.round(h / 24)} días`;
-  return { clave: h < 24 ? 'cool' : h < 24 * 7 ? 'warm' : 'dim', texto, fecha };
+/* ── medidas ────────────────────────────────────────── */
+const PASILLO = 6, FONDO = 8.4, ALTO = 2.2, GROSOR = 0.15, PUERTA = 2.2, ANCHO = 9.4;
+const RADIO = 0.35, VEL = 3.6, ROBOT = 0.62;
+
+// normaliza el JSON del endpoint: todo puesto conocido queda con una situación
+function normaliza(datos){
+  const dch = datos?.despachos && typeof datos.despachos === 'object' ? datos.despachos : {};
+  const out = {};
+  for (const { id, puestos } of [RECEPCION, ...DESPACHOS]){
+    for (const p of puestos){
+      const d = dch[p] || {};
+      out[p] = {
+        despacho: d.despacho || id,
+        situacion: situacion(d.situacion),
+        detalle: typeof d.detalle === 'string' ? d.detalle : '',
+        cuando: d.cuando || null,
+      };
+    }
+  }
+  return out;
+}
+function hace(iso){
+  if (!iso) return '';
+  const f = new Date(iso);
+  if (Number.isNaN(+f)) return '';
+  const m = (Date.now() - f) / 6e4;
+  return m < 1 ? 'hace menos de un minuto' : m < 60 ? `hace ${Math.round(m)} min`
+    : m < 1440 ? `hace ${Math.round(m / 60)} h` : `hace ${Math.round(m / 1440)} días`;
 }
 
-// colisión: el personaje es un círculo de RADIO contra cajas alineadas a los ejes
 function libre(x, z, lista = obstaculos){
   return !lista.some(o => x + RADIO > o.x0 && x - RADIO < o.x1 && z + RADIO > o.z0 && z - RADIO < o.z1);
 }
 
-if (location.search === '?test'){
-  const hace = n => ({ ultima: new Date(Date.now() - n * 36e5).toISOString().slice(0, 16).replace('T', ' ') });
-  console.assert(actividad(hace(2)).clave === 'cool', 'cool');
-  console.assert(actividad(hace(50)).clave === 'warm', 'warm');
-  console.assert(actividad(hace(24 * 9)).clave === 'dim', 'dim');
-  console.assert(actividad({}).clave === 'dim', 'sin log');
+if (Q.has('test')){
+  const n = normaliza(EJEMPLO);
+  console.assert(Object.keys(n).length === 11, 'once puestos');
+  console.assert(n.explorador.situacion === 'trabajando' && n.revisor.situacion === 'parado', 'situaciones del ejemplo');
+  console.assert(n.integrador.situacion === 'libre' && n.integrador.detalle === '', 'ausente = libre');
+  console.assert(normaliza(null).analista.situacion === 'libre', 'sin datos = libre');
+  console.assert(normaliza({ despachos:{ analista:{ situacion:'inventada' } } }).analista.situacion === 'libre', 'situacion desconocida = libre');
   const caja = [{ x0:-1, x1:1, z0:-1, z1:1 }];
-  console.assert(!libre(0, 0, caja) && !libre(1.2, 0, caja) && libre(1.5, 0, caja) && libre(0, -1.4, caja), 'colision');
-  console.log('ok actividad y colision');
+  console.assert(!libre(0, 0, caja) && libre(1.5, 0, caja), 'colision');
+  console.log('ok normaliza y colision');
 }
 
 /* ── escena ─────────────────────────────────────────── */
@@ -225,30 +297,44 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(PAL.night);
 const camera = new THREE.PerspectiveCamera(38, innerWidth / innerHeight, 0.1, 160);
 
-/* ── materiales y piezas ────────────────────────────── */
 const mat = (color, extra = {}) => new THREE.MeshStandardMaterial({ color, roughness:.8, metalness:.05, ...extra });
-const plano = (color, extra = {}) => new THREE.MeshBasicMaterial({ color, toneMapped:false, ...extra });
 const M = {
   cream: mat(PAL.cream, { roughness:.6 }), pared: mat(PAL.cream, { roughness:.95 }), navy: mat(PAL.navy, { roughness:.5, metalness:.2 }),
   navy2: mat(PAL.navy2, { roughness:1 }), coral: mat(PAL.coral, { roughness:.7 }), white: mat(PAL.white, { roughness:.6 }),
   wood: mat(PAL.wood, { roughness:.85 }), wood2: mat(PAL.wood2, { roughness:.9 }), night: mat(PAL.night, { roughness:.25, metalness:.3 }),
   leaf: mat(PAL.leaf, { roughness:.85, flatShading:true }), leaf2: mat(PAL.leaf2, { roughness:.85, flatShading:true }),
-  papel: mat(PAL.white, { roughness:.95 }), plum: mat(PAL.plum, { roughness:.8 }), mint: mat(PAL.mint, { roughness:.8 }),
-  amber: mat(PAL.amber, { roughness:.8 }), sky: mat(PAL.sky, { roughness:.8 }),
+  plum: mat(PAL.plum, { roughness:.8 }), mint: mat(PAL.mint, { roughness:.8 }), amber: mat(PAL.amber, { roughness:.8 }), sky: mat(PAL.sky, { roughness:.8 }),
+};
+// geometrías compartidas: once robots crean muchas mallas, pero una sola geometría por pieza
+const G = {
+  ojo: new THREE.CapsuleGeometry(0.055, 0.06, 4, 10),
+  boca: new THREE.CapsuleGeometry(0.04, 0.16, 4, 8),
+  auricular: new THREE.SphereGeometry(0.16, 12, 8),
+  antena: new THREE.CylinderGeometry(0.025, 0.025, 0.28, 6),
+  bolita: new THREE.SphereGeometry(0.08, 12, 8),
+  nucleo: new THREE.SphereGeometry(0.13, 14, 10),
+  mano: new THREE.SphereGeometry(0.15, 12, 8),
+  base: new THREE.ConeGeometry(0.34, 0.34, 12),
+  anillo1: new THREE.TorusGeometry(0.46, 0.028, 8, 24),
+  anillo2: new THREE.TorusGeometry(0.3, 0.02, 8, 20),
+  halo: new THREE.CircleGeometry(0.62, 20),
+  cabeza: new RoundedBoxGeometry(1.02, 0.78, 0.8, 3, 0.3),
+  visor: new RoundedBoxGeometry(0.82, 0.42, 0.12, 2, 0.06),
+  cuerpo: new RoundedBoxGeometry(0.82, 0.86, 0.66, 3, 0.28),
 };
 function caja(w, h, d, material, x, y, z, r = 0.03){
-  const m = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 4, Math.min(r, w / 2, h / 2, d / 2)), material);
+  const m = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 3, Math.min(r, w / 2, h / 2, d / 2)), material);
   m.position.set(x, y, z);
   m.castShadow = m.receiveShadow = true;
   return m;
 }
-function cil(rt, rb, h, material, x, y, z, seg = 14){
+function cil(rt, rb, h, material, x, y, z, seg = 12){
   const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), material);
   m.position.set(x, y, z); m.castShadow = true;
   return m;
 }
-function bola(r, material, x, y, z, seg = 16){
-  const m = new THREE.Mesh(new THREE.SphereGeometry(r, seg, Math.max(8, Math.round(seg * .75))), material);
+function bola(r, material, x, y, z, seg = 14){
+  const m = new THREE.Mesh(new THREE.SphereGeometry(r, seg, Math.max(8, Math.round(seg * .7))), material);
   m.position.set(x, y, z); m.castShadow = true;
   return m;
 }
@@ -257,47 +343,47 @@ function lamina(w, h, material, x, y, z){
   m.position.set(x, y, z);
   return m;
 }
-// caja alineada a los ejes en coordenadas de mundo a partir de un rectángulo local del objeto
 function aabb(obj, x0, x1, z0, z1){
   const a = obj.localToWorld(new THREE.Vector3(x0, 0, z0)), b = obj.localToWorld(new THREE.Vector3(x1, 0, z1));
   return { x0:Math.min(a.x, b.x), x1:Math.max(a.x, b.x), z0:Math.min(a.z, b.z), z1:Math.max(a.z, b.z) };
 }
 
-const papelGeo = new THREE.BoxGeometry(0.3, 0.012, 0.4);
-const mesas = [], porNombre = new Map(), despachos = [], paredes = [], obstaculos = [], bloques = [];
-const graficos = [], leds = [], plantas = [], motas = [];
-let mesaJefe = null, briefing = null, ultimoAgentes = null;
+const obstaculos = [], bloques = [], plantas = [], puestos = new Map(), salas = new Map();
+let recepcion = null;
 
-/* ── el robot (personaje de Runable, en nuestra escala) ── */
+/* ── el robot ───────────────────────────────────────── */
 function robot(hex, escala = ROBOT){
   const color = new THREE.Color(hex);
   const luminoso = k => { const m = new THREE.MeshStandardMaterial({ color, emissive:color, emissiveIntensity:k, toneMapped:false }); m.userData.base = k; return m; };
   const g = new THREE.Group();
 
   const cabeza = new THREE.Group(); cabeza.position.y = 0.72;
-  cabeza.add(caja(1.02, 0.78, 0.8, M.cream, 0, 0, 0, 0.3));
-  cabeza.add(caja(0.82, 0.42, 0.12, M.night, 0, 0.04, 0.4, 0.06));
-  const ojoGeo = new THREE.CapsuleGeometry(0.055, 0.06, 4, 12);
-  const ojoI = new THREE.Mesh(ojoGeo, luminoso(2.4)); ojoI.position.set(-0.17, 0.06, 0.47);
+  const craneo = new THREE.Mesh(G.cabeza, M.cream); craneo.castShadow = true;
+  const visor = new THREE.Mesh(G.visor, M.night); visor.position.set(0, 0.04, 0.4);
+  const ojoI = new THREE.Mesh(G.ojo, luminoso(2.4)); ojoI.position.set(-0.17, 0.06, 0.47);
   const ojoD = ojoI.clone(); ojoD.position.x = 0.17;
-  const boca = new THREE.Mesh(new THREE.CapsuleGeometry(0.04, 0.16, 4, 10), luminoso(1.4));
+  const boca = new THREE.Mesh(G.boca, luminoso(1.4));
   boca.position.set(0, -0.16, 0.43); boca.rotation.z = Math.PI / 2; boca.scale.y = 0.45;
-  cabeza.add(ojoI, ojoD, boca, bola(0.16, M.navy, -0.56, 0, 0), bola(0.16, M.navy, 0.56, 0, 0));
-  cabeza.add(cil(0.025, 0.025, 0.28, M.navy, 0, 0.48, 0, 8));
-  const antena = bola(0.08, luminoso(2.6), 0, 0.66, 0); cabeza.add(antena);
+  const aurI = new THREE.Mesh(G.auricular, M.navy); aurI.position.x = -0.56;
+  const aurD = new THREE.Mesh(G.auricular, M.navy); aurD.position.x = 0.56;
+  const palo = new THREE.Mesh(G.antena, M.navy); palo.position.y = 0.48;
+  const antena = new THREE.Mesh(G.bolita, luminoso(2.6)); antena.position.y = 0.66;
+  cabeza.add(craneo, visor, ojoI, ojoD, boca, aurI, aurD, palo, antena);
 
-  const cuerpo = caja(0.82, 0.86, 0.66, M.white, 0, -0.02, 0, 0.28);
-  const nucleo = bola(0.13, luminoso(2.8), 0, 0.02, 0.35, 20);
-  const luz = new THREE.PointLight(color, 2.2, 2.4, 2); luz.position.set(0, 0.1, 0.5);
-  const manoI = bola(0.15, M.navy, -0.78, -0.1, 0.05, 18), manoD = bola(0.15, M.navy, 0.78, -0.1, 0.05, 18);
-  const base = new THREE.Mesh(new THREE.ConeGeometry(0.34, 0.34, 16), mat(PAL.navy, { roughness:.4, flatShading:true }));
-  base.position.y = -0.56; base.castShadow = true;
-  const anillo1 = new THREE.Mesh(new THREE.TorusGeometry(0.46, 0.028, 10, 40), luminoso(2)); anillo1.position.y = -0.78; anillo1.rotation.x = Math.PI / 2;
-  const anillo2 = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.02, 10, 32), luminoso(1.4)); anillo2.position.y = -0.92; anillo2.rotation.x = Math.PI / 2;
-  const halo = new THREE.Mesh(new THREE.CircleGeometry(0.62, 32), new THREE.MeshBasicMaterial({ color, transparent:true, opacity:.16, toneMapped:false }));
+  const cuerpo = new THREE.Mesh(G.cuerpo, M.white); cuerpo.position.y = -0.02; cuerpo.castShadow = true;
+  const nucleo = new THREE.Mesh(G.nucleo, luminoso(2.8)); nucleo.position.set(0, 0.02, 0.35);
+  // ponytail: sin luz propia en cada robot. Doce PointLight encarecen todos los materiales;
+  // el estado ya se ve en el emisivo, el halo y la baliza de la mesa.
+  const luz = { color, intensity:0, visible:false, position:{ set(){} } };
+  const manoI = new THREE.Mesh(G.mano, M.navy); manoI.position.set(-0.78, -0.1, 0.05); manoI.castShadow = true;
+  const manoD = new THREE.Mesh(G.mano, M.navy); manoD.position.set(0.78, -0.1, 0.05); manoD.castShadow = true;
+  const base = new THREE.Mesh(G.base, mat(PAL.navy, { roughness:.4, flatShading:true })); base.position.y = -0.56; base.castShadow = true;
+  const anillo1 = new THREE.Mesh(G.anillo1, luminoso(2)); anillo1.position.y = -0.78; anillo1.rotation.x = Math.PI / 2;
+  const anillo2 = new THREE.Mesh(G.anillo2, luminoso(1.4)); anillo2.position.y = -0.92; anillo2.rotation.x = Math.PI / 2;
+  const halo = new THREE.Mesh(G.halo, new THREE.MeshBasicMaterial({ color, transparent:true, opacity:.16, toneMapped:false }));
   halo.position.y = -1.18; halo.rotation.x = -Math.PI / 2;
 
-  g.add(cabeza, cuerpo, nucleo, luz, manoI, manoD, base, anillo1, anillo2, halo);
+  g.add(cabeza, cuerpo, nucleo, manoI, manoD, base, anillo1, anillo2, halo);
   g.scale.setScalar(escala);
   g.position.y = 1.18 * escala;
   Object.assign(g.userData, {
@@ -312,10 +398,8 @@ function colorea(r, hex, factor = 1){
   u.color.setHex(hex); u.factor = factor;
   for (const m of u.lum){ m.color.copy(u.color); m.emissive.copy(u.color); m.emissiveIntensity = m.userData.base * factor; }
   u.halo.material.color.copy(u.color); u.halo.material.opacity = 0.16 * factor;
-  u.luz.color.copy(u.color);
 }
-// opts: s (ritmo), amp (manos), mira (Vector3 en mundo hacia donde girar la cabeza)
-function animaRobot(r, t, dt, opts){
+function animaRobot(r, t, dt, opts = {}){
   const u = r.userData, s = opts.s || 1, k = r.scale.x;
   r.position.y = 1.18 * k + Math.sin(t * 1.4 * s + u.fase) * 0.09 * k;
   r.rotation.z = Math.sin(t * 0.9 + u.fase) * 0.03;
@@ -326,33 +410,33 @@ function animaRobot(r, t, dt, opts){
   u.manos[0].position.y = Math.sin(t * 2.6 * s + u.fase) * amp - 0.1;
   u.manos[1].position.y = Math.sin(t * 2.6 * s + u.fase + Math.PI / 2) * amp - 0.1;
   u.nucleo.scale.setScalar(1 + Math.sin(t * 3 * s) * 0.14);
-  u.luz.intensity = (2.2 + Math.sin(t * 3 * s) * 0.7) * u.factor;
   u.boca.scale.y += ((opts.habla ? 0.5 + Math.abs(Math.sin(t * 12)) * 1.6 : 0.45) - u.boca.scale.y) * 0.3;
-  u.cabeza.rotation.x += ((opts.piensa ? -0.14 : 0) - u.cabeza.rotation.x) * 0.08;
   let giro = 0;
   if (opts.mira){
     const p = r.worldToLocal(opts.mira.clone());
-    if (Math.hypot(p.x, p.z) < 14) giro = THREE.MathUtils.clamp(Math.atan2(p.x, p.z), -0.55, 0.55);
+    if (Math.hypot(p.x, p.z) < 12) giro = THREE.MathUtils.clamp(Math.atan2(p.x, p.z), -0.55, 0.55);
   }
   u.cabeza.rotation.y += (giro - u.cabeza.rotation.y) * 0.08;
 }
+// en reposo el robot solo flota: una interpolación, sin senos ni anillos
+function reposa(r, t){
+  const u = r.userData, k = r.scale.x;
+  r.position.y = 1.18 * k + Math.sin(t * 0.6 + u.fase) * 0.03 * k;
+}
 
-/* ── piezas de mobiliario ───────────────────────────── */
-// gráfico de barras en una pantalla: se anima en el bucle
+/* ── mobiliario ─────────────────────────────────────── */
 function grafico(){
   const g = new THREE.Group();
   for (let k = 0; k < 6; k++){
-    const b = new THREE.Mesh(new THREE.PlaneGeometry(0.075, 0.5), plano(k % 2 ? PAL.mint : PAL.coral, { side:THREE.DoubleSide }));
-    b.position.x = k * 0.12; b.userData.y0 = 0; b.userData.k = k;
+    const b = new THREE.Mesh(new THREE.PlaneGeometry(0.075, 0.5), new THREE.MeshBasicMaterial({ color:k % 2 ? PAL.mint : PAL.coral, toneMapped:false, side:THREE.DoubleSide }));
+    b.position.x = k * 0.12; b.userData.k = k;
     g.add(b);
   }
-  for (let k = 0; k < 3; k++) g.add(lamina(0.46 - k * 0.08, 0.04, plano(PAL.white, { transparent:true, opacity:.75, side:THREE.DoubleSide }), 0.97 - k * 0.04, 0.5 - k * 0.11, 0));
-  graficos.push(g);
   return g;
 }
 function monitor(ancho, alto, x, y, z){
   const g = new THREE.Group(); g.position.set(x, y, z);
-  g.add(cil(ancho * .14, ancho * .17, 0.05, M.navy, 0, 0.025, 0, 18));
+  g.add(cil(ancho * .14, ancho * .17, 0.05, M.navy, 0, 0.025, 0, 14));
   g.add(caja(0.08, alto * .45, 0.08, M.navy, 0, alto * .25, 0, 0.01));
   const cy = alto * .45 + alto / 2 + 0.03;
   g.add(caja(ancho, alto, 0.07, M.navy, 0, cy, 0, 0.04));
@@ -363,191 +447,116 @@ function monitor(ancho, alto, x, y, z){
   g.userData = { pantalla, barras };
   return g;
 }
-function lampara(x, z){
+// baliza de estado: se ve desde lejos sin acercarse
+function baliza(x, z){
   const g = new THREE.Group(); g.position.set(x, 0.81, z);
-  g.add(cil(0.11, 0.12, 0.04, M.navy, 0, 0.02, 0));
-  const brazo = cil(0.03, 0.03, 0.46, M.navy, 0, 0.26, 0.03, 8); brazo.rotation.x = 0.25; g.add(brazo);
-  const cabezal = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.18, 16, 1, true),
-    new THREE.MeshStandardMaterial({ color:PAL.amber, emissive:PAL.amber, emissiveIntensity:0, side:THREE.DoubleSide, roughness:.5 }));
-  cabezal.position.set(0, 0.49, 0.13); cabezal.rotation.x = 1.1; cabezal.castShadow = true;
-  g.add(cabezal);
-  g.userData.cabezal = cabezal;
+  g.add(cil(0.07, 0.09, 0.04, M.navy, 0, 0.02, 0));
+  g.add(cil(0.022, 0.022, 0.3, M.navy, 0, 0.19, 0, 6));
+  const foco = new THREE.Mesh(new THREE.SphereGeometry(0.085, 14, 10),
+    new THREE.MeshStandardMaterial({ color:PAL.night, emissive:PAL.sky, emissiveIntensity:1.2, toneMapped:false }));
+  foco.position.y = 0.38;
+  const luz = new THREE.PointLight(PAL.sky, 1.4, 3, 2); luz.position.y = 0.44;
+  g.add(foco, luz);
+  g.userData = { foco, luz };
   return g;
 }
-function taza(x, y, z){
-  const g = new THREE.Group(); g.position.set(x, y, z);
-  g.add(cil(0.09, 0.08, 0.17, M.coral, 0, 0, 0));
-  const asa = new THREE.Mesh(new THREE.TorusGeometry(0.055, 0.017, 8, 20), M.coral); asa.position.set(0.11, 0.01, 0); asa.rotation.y = Math.PI / 2; asa.rotation.x = Math.PI / 2;
-  g.add(asa);
-  return g;
-}
-function libros(x, y, z){
-  const g = new THREE.Group();
-  [M.plum, M.mint, M.amber].forEach((m, k) => { const l = caja(0.36, 0.07, 0.27, m, x, y + k * 0.075, z, 0.01); l.rotation.y = k * 0.1; g.add(l); });
-  return g;
-}
-function silla(x, z, ancho = 0.6, respaldo = 0.62){
-  const g = new THREE.Group(); g.position.set(x, 0, z);
-  g.add(caja(ancho, 0.1, ancho * .93, M.coral, 0, 0.48, 0, 0.05));
-  const r = caja(ancho, respaldo, 0.1, M.coral, 0, 0.48 + respaldo / 2 + 0.02, -ancho * .42, 0.05); r.rotation.x = -0.1; g.add(r);
-  g.add(cil(0.05, 0.05, 0.44, M.navy, 0, 0.22, 0, 10));
-  g.add(cil(ancho * .5, ancho * .5, 0.04, M.navy, 0, 0.02, 0, 16));
+function silla(x, z, giro = 0){
+  const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = giro;
+  g.add(caja(0.6, 0.1, 0.56, M.coral, 0, 0.48, 0, 0.05));
+  const r = caja(0.6, 0.62, 0.1, M.coral, 0, 0.82, -0.25, 0.05); r.rotation.x = -0.1; g.add(r);
+  g.add(cil(0.05, 0.05, 0.44, M.navy, 0, 0.22, 0, 8));
+  g.add(cil(0.3, 0.3, 0.04, M.navy, 0, 0.02, 0, 12));
   return g;
 }
 function planta(x, z, escala = 1){
   const g = new THREE.Group(); g.position.set(x, 0, z); g.scale.setScalar(escala);
-  g.add(cil(0.32, 0.24, 0.6, M.coral, 0, 0.3, 0, 16));
-  g.add(cil(0.34, 0.34, 0.08, M.wood2, 0, 0.62, 0, 16));
+  g.add(cil(0.32, 0.24, 0.6, M.coral, 0, 0.3, 0, 14));
+  g.add(cil(0.34, 0.34, 0.08, M.wood2, 0, 0.62, 0, 14));
   const hojas = new THREE.Group(); hojas.position.y = 0.66;
-  [[0, 0.55, 0, 0, 0], [0.28, 0.42, 0.1, 0, 0.5], [-0.26, 0.45, -0.1, 0, -0.5], [0.05, 0.38, 0.3, 0.5, 0], [-0.08, 0.35, -0.3, -0.5, 0]]
-    .forEach(([px, py, pz, rx, rz], k) => { const h = bola(0.28, k % 2 ? M.leaf : M.leaf2, px, py, pz, 14); h.rotation.set(rx, 0, rz); hojas.add(h); });
+  [[0, 0.55, 0], [0.28, 0.42, 0.1], [-0.26, 0.45, -0.1], [0.05, 0.38, 0.3], [-0.08, 0.35, -0.3]]
+    .forEach(([px, py, pz], k) => hojas.add(bola(0.28, k % 2 ? M.leaf : M.leaf2, px, py, pz, 10)));
   g.add(hojas);
   plantas.push(hojas);
   return g;
 }
-function rackServidores(){
-  const g = new THREE.Group();
-  g.add(caja(0.9, 2.0, 0.75, M.navy, 0, 1.0, 0, 0.06));
-  for (let k = 0; k < 6; k++){
-    g.add(caja(0.78, 0.2, 0.04, M.night, 0, 0.3 + k * 0.29, 0.385, 0.01));
-    for (const j of [0, 1]){
-      const led = new THREE.Mesh(new THREE.CircleGeometry(0.03, 12), plano((k * 2 + j) % 3 === 0 ? PAL.coral : PAL.mint, { transparent:true, opacity:.8 }));
-      led.position.set(-0.27 + j * 0.12, 0.3 + k * 0.29, 0.41);
-      g.add(led); leds.push(led);
-    }
-  }
-  return g;
-}
-function pizarra(){
-  const g = new THREE.Group();
-  g.add(caja(2.2, 1.4, 0.1, M.white, 0, 0, 0, 0.03));
-  g.add(lamina(2.06, 1.26, mat(0xFBFDFF, { roughness:.3 }), 0, 0, 0.06));
-  [[-0.62, 0.3, PAL.amber], [0, 0.3, PAL.mint], [0.62, 0.3, PAL.sky], [-0.31, -0.24, PAL.coral], [0.31, -0.24, PAL.plum]]
-    .forEach(([x, y, c], k) => { const n = lamina(0.46, 0.38, plano(c), x, y, 0.08); n.rotation.z = (k % 2 ? 1 : -1) * 0.05; g.add(n); });
-  g.add(caja(2.2, 0.1, 0.16, M.navy, 0, -0.75, 0.06, 0.02));
-  return g;
-}
-function estanteria(){
-  const g = new THREE.Group();
-  g.add(caja(2.2, 1.0, 0.5, M.wood, 0, 0.5, 0, 0.04));
-  g.add(caja(2.08, 0.05, 0.48, M.wood2, 0, 0.5, 0.02, 0.01));
-  [[-0.65, M.coral], [-0.22, M.mint], [0.24, M.plum], [0.66, M.amber]].forEach(([x, m]) => g.add(caja(0.36, 0.34, 0.36, m, x, 0.24, 0.1, 0.02)));
-  [M.sky, M.amber, M.coral].forEach((m, k) => { const c = caja(0.09, 0.36, 0.3, m, 0.5 + k * 0.09, 1.19, 0, 0.01); c.rotation.z = 0.14 + k * 0.05; g.add(c); });
-  const p = planta(-0.75, 0, 0.45); p.position.y = 1.0; g.add(p);
-  return g;
-}
 function ventana(g, x, z){
   const v = new THREE.Group(); v.position.set(x, 1.25, z);
+  const plano = (c, o = 1) => new THREE.MeshBasicMaterial({ color:c, toneMapped:false, transparent:o < 1, opacity:o });
   v.add(lamina(2.4, 1.2, plano(PAL.sky), 0, 0, 0));
   for (const [cx, cy, r] of [[-0.5, 0.25, 0.26], [-0.22, 0.2, 0.18], [0.65, -0.15, 0.2]]){
-    const n = new THREE.Mesh(new THREE.CircleGeometry(r, 24), plano(PAL.white)); n.position.set(cx, cy, 0.02); v.add(n);
+    const n = new THREE.Mesh(new THREE.CircleGeometry(r, 16), plano(PAL.white)); n.position.set(cx, cy, 0.02); v.add(n);
   }
-  const sol = new THREE.Mesh(new THREE.CircleGeometry(0.15, 24), plano(PAL.amber)); sol.position.set(0.8, 0.38, 0.02); v.add(sol);
+  const sol = new THREE.Mesh(new THREE.CircleGeometry(0.15, 16), plano(PAL.amber)); sol.position.set(0.8, 0.38, 0.02); v.add(sol);
   v.add(caja(0.05, 1.25, 0.06, M.white, 0, 0, 0.06, 0.01), caja(2.5, 0.05, 0.06, M.white, 0, 0, 0.06, 0.01));
   for (const ex of [-1.23, 1.23]) v.add(caja(0.12, 1.3, 0.12, M.navy, ex, 0, 0.06, 0.02));
   for (const ey of [-0.62, 0.62]) v.add(caja(2.58, 0.12, 0.12, M.navy, 0, ey, 0.06, 0.02));
   v.add(caja(2.7, 0.1, 0.3, M.white, 0, -0.7, 0.12, 0.02));
   g.add(v);
-  const haz = lamina(3, 2.4, plano(PAL.amber, { transparent:true, opacity:.14 }), x, 0.012, z + 1.45); haz.rotation.x = -Math.PI / 2; haz.rotation.z = 0.12;
+  const haz = lamina(3, 2.4, plano(PAL.amber, .14), x, 0.012, z + 1.45); haz.rotation.x = -Math.PI / 2; haz.rotation.z = 0.12;
   g.add(haz);
-  const luz = new THREE.PointLight(PAL.amber, 7, 9, 2); luz.position.set(x, 1.7, z + 1.2);
-  g.add(luz);
-}
-function cuadro(g, x, y, z, color, w, h){
-  g.add(caja(w + 0.18, h + 0.18, 0.06, M.white, x, y, z, 0.01));
-  g.add(lamina(w, h, plano(color), x, y, z + 0.04));
+  // sin PointLight por ventana: seis salas serían seis luces más; el haz del suelo ya da la sensación
 }
 
-/* ── mesa de agente (local: el robot mira hacia +z, la puerta) ── */
-function mesa(x, z){
+/* ── puesto de trabajo ──────────────────────────────── */
+// Los dos puestos comparten una mesa en L: el robot mira hacia el centro del despacho.
+function puesto(id, sala, x, z, giro){
   const g = new THREE.Group();
-  g.position.set(x, 0, z);
-  g.userData.esMesa = true;
+  g.position.set(x, 0, z); g.rotation.y = giro;
+  g.userData.puesto = id;
 
-  g.add(caja(2.3, 0.1, 1.1, M.cream, 0, 0.76, 0, 0.05));
-  for (const [px, pz] of [[-1.0, -0.42], [1.0, -0.42], [-1.0, 0.42], [1.0, 0.42]]) g.add(cil(0.05, 0.05, 0.72, M.navy, px, 0.36, pz, 10));
-  const mon = monitor(1.4, 0.82, 0.1, 0.81, 0.3); g.add(mon);
-  g.add(caja(0.75, 0.04, 0.26, M.white, 0, 0.83, -0.15, 0.02));
-  g.add(bola(0.07, M.white, 0.62, 0.84, -0.15, 12));
-  g.add(taza(-0.45, 0.895, -0.4));
-  g.add(libros(-0.85, 0.845, 0.28));
-  const lamp = lampara(0.95, -0.28); g.add(lamp);
+  g.add(caja(2.0, 0.1, 1.0, M.cream, 0, 0.76, 0, 0.05));
+  for (const [px, pz] of [[-0.85, -0.38], [0.85, -0.38], [-0.85, 0.38], [0.85, 0.38]]) g.add(cil(0.05, 0.05, 0.72, M.navy, px, 0.36, pz, 8));
+  const mon = monitor(1.25, 0.74, 0.05, 0.81, 0.28); g.add(mon);
+  g.add(caja(0.68, 0.04, 0.24, M.white, -0.02, 0.83, -0.12, 0.02));
+  const bal = baliza(0.82, -0.26); g.add(bal);
+  g.add(silla(0, -0.85));
+  const rob = robot(PAL.sky); rob.position.z = -0.85; g.add(rob);
 
-  const asiento = silla(0, -0.95); g.add(asiento);
-  const rob = robot(PAL.plum); rob.position.z = -0.95; rob.visible = false; g.add(rob);
-
-  const papeles = new THREE.Group(); g.add(papeles);
-  const carpeta = caja(0.28, 0.03, 0.36, M.coral, 0.6, 0.83, 0.28, 0.005); carpeta.visible = false; g.add(carpeta);
-
-  const div = document.createElement('div');
-  div.className = 'lbl card';
-  div.onclick = e => { e.stopPropagation(); irA(g); };
-  const etiqueta = new CSS2DObject(div);
-  etiqueta.position.set(0, 2.15, -0.95);
-  etiqueta.center.set(0.5, 1);
-  etiqueta.visible = false; // CSS2DRenderer pisa element.style.display en cada frame: se oculta el objeto, no el div
-  g.add(etiqueta);
-  // bocadillo con la respuesta cuando el agente habla
   const bdiv = document.createElement('div'); bdiv.className = 'bocadillo';
   const bocadillo = new CSS2DObject(bdiv);
-  bocadillo.position.set(0.55, 1.9, -0.95); bocadillo.center.set(0, 1); bocadillo.visible = false;
+  bocadillo.position.set(0.5, 1.85, -0.85); bocadillo.center.set(0, 1); bocadillo.visible = false;
   g.add(bocadillo);
 
-  Object.assign(g.userData, { pantalla:mon.userData.pantalla, barras:mon.userData.barras, cabezal:lamp.userData.cabezal, silla:asiento, robot:rob, papeles, carpeta, div, etiqueta, bocadillo, datos:null, act:null, nombre:null, animo:null, animoHasta:0 });
-  mesas.push(g);
+  Object.assign(g.userData, { sala, robot:rob, baliza:bal, pantalla:mon.userData.pantalla, barras:mon.userData.barras, bocadillo, estado:null });
+  puestos.set(id, g);
   return g;
 }
 
-// `a` es el agente del endpoint o null; `nombre` viene de despachos.json aunque no haya datos
-function aplica(g, a, nombre = a?.nombre){
-  const u = g.userData;
-  if (u.datos) porNombre.delete(u.datos.nombre);
-  u.datos = a || null; u.nombre = nombre || null;
-  u.act = a ? actividad(a) : null;
-  u.papeles.clear();
-  const ocupada = !!nombre;
-  u.robot.visible = ocupada; u.silla.visible = !ocupada; u.etiqueta.visible = ocupada;
-  u.barras.visible = !!a;
-  u.pantalla.material.emissiveIntensity = a ? 1.1 : 0;
-  u.cabezal.material.emissiveIntensity = a ? 0.9 : 0;
-  u.carpeta.visible = !!a && (a.incompletas || 0) > 0;
-  if (!ocupada) return;
-  if (!a){
-    colorea(u.robot, PAL.plum, 0.35);
-    u.div.innerHTML = `<div class="nm">${esc(titulo(nombre))}</div><div class="row"><span class="mod">sin datos</span><span class="dot" style="background:${CSSCOL.dim};color:${CSSCOL.dim}"></span></div>`;
-    return;
-  }
-  porNombre.set(a.nombre, g);
-  if (!u.animo) colorea(u.robot, ESTADO[u.act.clave], u.act.clave === 'dim' ? 0.45 : 1); // si está pensando o hablando conserva ese color
-
-  // una hoja por cada 6 conversaciones: se ve quién trabaja más sin leer números
-  const n = Math.min(10, Math.ceil((a.conversaciones || 0) / 6));
-  for (let k = 0; k < n; k++){
-    const p = new THREE.Mesh(papelGeo, M.papel);
-    p.position.set(-0.8 + Math.sin(k * 7.3) * 0.015, 0.816 + k * 0.013, -0.1 + Math.cos(k * 5.1) * 0.015);
-    p.rotation.y = Math.sin(k * 3.7) * 0.12;
-    p.castShadow = p.receiveShadow = true;
-    u.papeles.add(p);
-  }
-  u.div.innerHTML = `
-    <div class="nm">${esc(titulo(a.nombre))}</div>
-    <div class="row"><span class="mod">${esc((a.modelo || 'sin uso').replace('claude-', ''))}</span><span class="dot" style="background:${CSSCOL[u.act.clave]};color:${CSSCOL[u.act.clave]}"></span></div>
-    <div class="met">${a.conversaciones} conv · ${a.coste_medio} USD/conv</div>`;
+// pinta un puesto según su estado; sin animación si no trabaja
+function aplica(id, e){
+  const g = puestos.get(id);
+  if (!g) return;
+  const u = g.userData, s = SIT[e.situacion];
+  u.estado = e;
+  colorea(u.robot, s.hex, s.factor);
+  u.baliza.userData.foco.material.emissive.setHex(s.hex);
+  u.baliza.userData.foco.material.emissiveIntensity = e.situacion === 'trabajando' ? 2.2 : 0.9;
+  u.baliza.userData.luz.color.setHex(s.hex);
+  u.baliza.userData.luz.intensity = e.situacion === 'trabajando' ? 2.4 : 0.5;
+  u.pantalla.material.emissive.setHex(s.hex);
+  u.pantalla.material.emissiveIntensity = e.situacion === 'trabajando' ? 1.2 : e.situacion === 'libre' ? 0.25 : 0;
+  u.barras.visible = e.situacion === 'trabajando';
 }
 
-/* ── despacho (local: puerta en +z) ─────────────────── */
+/* ── sala ───────────────────────────────────────────── */
 function pared(g, w, d, x, z){
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, ALTO, d), M.pared);
   m.position.set(x, ALTO / 2, z);
   m.castShadow = m.receiveShadow = true;
   g.add(m);
-  paredes.push({ m, w, d });
+  g.userData.paredes.push({ m, w, d });
 }
 function rodapie(g, w, d, x, z){ const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.24, d), M.navy); m.position.set(x, 0.12, z); g.add(m); }
 
-function despacho(cfg, W){
+// Sala con la puerta en +z. Los dos puestos van en L junto a la esquina del fondo.
+function sala(cfg, esRecepcion = false){
   const g = new THREE.Group();
-  const D = FONDO, t = GROSOR;
+  const W = esRecepcion ? 8.2 : ANCHO, D = esRecepcion ? 6.4 : FONDO, t = GROSOR;
+  g.userData.paredes = [];
+
+  const suelo = new THREE.Mesh(new THREE.PlaneGeometry(W - t, D - t), mat(esRecepcion ? PAL.navy2 : PAL.wood2, { roughness:.95 }));
+  suelo.rotation.x = -Math.PI / 2; suelo.position.y = 0.004; suelo.receiveShadow = true;
+  g.add(suelo);
 
   pared(g, W + t, t, 0, -D / 2);
   pared(g, t, D, -W / 2, 0);
@@ -558,119 +567,95 @@ function despacho(cfg, W){
   rodapie(g, W - t, 0.06, 0, -D / 2 + t / 2 + 0.03);
   rodapie(g, 0.06, D - t, -W / 2 + t / 2 + 0.03, 0);
   rodapie(g, 0.06, D - t, W / 2 - t / 2 - 0.03, 0);
-  rodapie(g, hoja - t / 2, 0.06, -(PUERTA + hoja) / 2, D / 2 - t / 2 - 0.03);
-  rodapie(g, hoja - t / 2, 0.06, (PUERTA + hoja) / 2, D / 2 - t / 2 - 0.03);
 
   ventana(g, 0, -D / 2 + t / 2 + 0.01);
 
-  const alfombra = new THREE.Mesh(new THREE.CircleGeometry(Math.min(W, D) * 0.22, 40), M.navy2);
-  alfombra.rotation.x = -Math.PI / 2; alfombra.position.set(0, 0.012, 0.6); alfombra.receiveShadow = true;
-  const ribete = new THREE.Mesh(new THREE.RingGeometry(Math.min(W, D) * 0.17, Math.min(W, D) * 0.19, 40), M.coral);
-  ribete.rotation.x = -Math.PI / 2; ribete.position.set(0, 0.016, 0.6);
+  const alfombra = new THREE.Mesh(new THREE.CircleGeometry(Math.min(W, D) * 0.2, 28), M.navy2);
+  alfombra.rotation.x = -Math.PI / 2; alfombra.position.set(0, 0.014, D * 0.15); alfombra.receiveShadow = true;
+  const ribete = new THREE.Mesh(new THREE.RingGeometry(Math.min(W, D) * 0.16, Math.min(W, D) * 0.178, 28), M.coral);
+  ribete.rotation.x = -Math.PI / 2; ribete.position.set(0, 0.018, D * 0.15);
   g.add(alfombra, ribete);
 
-  const maceta = planta(W / 2 - 0.8, D / 2 - 0.9, 0.9); g.add(maceta);
+  const maceta = planta(W / 2 - 0.8, D / 2 - 1.0, 0.9); g.add(maceta);
   bloques.push([maceta, -0.35, 0.35, -0.35, 0.35]);
+
+  if (esRecepcion){
+    // mostrador en U y la asistenta detrás, de cara a la puerta
+    const p = puesto(cfg.puestos[0], cfg.id, 0, -1.2, Math.PI);
+    g.add(p);
+    g.add(caja(4.2, 1.0, 0.3, M.wood, 0, 0.5, 0.5, 0.05));
+    g.add(caja(4.2, 0.09, 0.66, M.cream, 0, 1.03, 0.52, 0.03));
+    for (const sx of [-2.0, 2.0]){ g.add(caja(0.3, 1.0, 1.0, M.wood, sx, 0.5, 0.05, 0.05)); }
+    bloques.push([g, -2.2, 2.2, 0.1, 0.9]);
+  } else {
+    // dos puestos en L sobre la misma esquina: se miran, el trabajo pasa de uno a otro
+    g.add(puesto(cfg.puestos[0], cfg.id, -1.15, -D / 2 + 1.35, 0));
+    g.add(puesto(cfg.puestos[1], cfg.id, 1.5, -D / 2 + 2.6, -Math.PI / 2));
+    // pizarra compartida, en la pared que ambos tienen a la vista
+    const board = new THREE.Group(); board.position.set(W / 2 - 0.35, 1.3, -D / 2 + 1.6);
+    board.add(caja(1.8, 1.2, 0.1, M.white, 0, 0, 0, 0.03));
+    [[-0.5, 0.25, PAL.amber], [0.1, 0.25, PAL.mint], [-0.2, -0.25, PAL.coral]].forEach(([bx, by, c]) => {
+      board.add(lamina(0.42, 0.34, new THREE.MeshBasicMaterial({ color:c, toneMapped:false }), bx, by, 0.06));
+    });
+    board.rotation.y = -Math.PI / 2;
+    g.add(board);
+  }
 
   const div = document.createElement('div');
   div.className = 'placa card';
+  div.onclick = ev => { ev.stopPropagation(); abre(cfg.id); };
   const placa = new CSS2DObject(div);
-  placa.position.set(0, ALTO + 0.5, D / 2);
+  placa.position.set(0, ALTO + 0.5, 0); // en el centro de la sala: en la puerta sobresalía de la planta
   placa.center.set(0.5, 1);
+  placa.visible = CFG.labels;
   g.add(placa);
 
-  const propias = [];
-  if (cfg.tuyo) interiorJefe(g, W, D);
-  else {
-    cuadro(g, -W / 2 + 1.7, 1.35, -D / 2 + t / 2 + 0.03, PAL.mint, 0.8, 0.6);
-    cuadro(g, W / 2 - 1.7, 1.4, -D / 2 + t / 2 + 0.03, PAL.coral, 0.55, 0.55);
-    for (const mx of [-W / 2 + 2.2, W / 2 - 2.2]){
-      const m = new THREE.Mesh(new THREE.OctahedronGeometry(0.16, 0), new THREE.MeshStandardMaterial({ color:PAL.plum, emissive:PAL.plum, emissiveIntensity:1.6, transparent:true, opacity:.85, toneMapped:false }));
-      m.position.set(mx, 1.4, 1.8); m.userData.fase = mx; g.add(m); motas.push(m);
-    }
-    const n = Math.max(cfg.mesas || 2, (cfg.agentes || []).length);
-    for (let i = 0; i < n; i++){
-      const m = mesa((i - (n - 1) / 2) * SEP_MESA, -1.5);
-      g.add(m); propias.push(m);
-    }
-  }
-  Object.assign(g.userData, { nombre:cfg.nombre, tuyo:!!cfg.tuyo, div, mesas:propias, W, D });
-  despachos.push(g);
+  Object.assign(g.userData, { cfg, W, D, div, placa });
+  salas.set(cfg.id, g);
   return g;
 }
 
-// tu mesa de dirección: sillón, sillas de visita, rack de servidores, pizarra y estantería
-function interiorJefe(g, W, D){
-  const t = GROSOR;
-  const m = new THREE.Group(); m.position.set(0, 0, -1.6); m.userData.jefe = true;
-  m.add(caja(3.2, 0.12, 1.3, M.wood, 0, 0.76, 0, 0.05));
-  for (const [x, z] of [[-1.45, -0.5], [1.45, -0.5], [-1.45, 0.5], [1.45, 0.5]]) m.add(cil(0.06, 0.06, 0.72, M.navy, x, 0.36, z, 10));
-  const mon = monitor(1.7, 0.98, -0.3, 0.82, 0.3);
-  mon.userData.pantalla.material.emissiveIntensity = 1.1; mon.userData.barras.visible = true;
-  m.add(mon);
-  m.add(caja(0.85, 0.04, 0.28, M.white, -0.3, 0.84, -0.15, 0.02));
-  m.add(bola(0.07, M.white, 0.35, 0.85, -0.15, 12));
-  m.add(taza(1.0, 0.905, 0.1));
-  m.add(libros(-1.35, 0.855, -0.2));
-  const lamp = lampara(1.25, -0.3); lamp.userData.cabezal.material.emissiveIntensity = 0.9; m.add(lamp);
-  m.add(silla(0, -1.05, 0.8, 0.95));
-  for (const x of [-0.9, 0.9]){ const s = silla(x, 1.3); s.rotation.y = Math.PI; m.add(s); }
-  g.add(m);
-  mesaJefe = m;
-
-  const rack = rackServidores(); rack.position.set(-W / 2 + 0.95, 0, -D / 2 + 1.1); g.add(rack);
-  const board = pizarra(); board.position.set(W / 2 - 2.0, 1.3, -D / 2 + t / 2 + 0.07); g.add(board);
-  const estante = estanteria(); estante.position.set(-W / 2 + 0.45, 0, 0.9); estante.rotation.y = Math.PI / 2; g.add(estante);
-  bloques.push([m, -1.7, 1.7, -1.5, 0.65], [m, -1.25, -0.55, 0.95, 1.65], [m, 0.55, 1.25, 0.95, 1.65], [rack, -0.6, 0.6, -0.5, 0.5], [estante, -1.25, 1.25, -0.4, 0.4]);
-}
-
-function pintaPlaca(d){
-  if (d.userData.tuyo){
-    d.userData.div.className = 'placa card tuya';
-    d.userData.div.innerHTML = `${esc(d.userData.nombre)} <span>· tú</span><i></i>`;
-    return;
-  }
-  const ocupadas = d.userData.mesas.filter(m => m.userData.nombre);
-  const conDatos = ocupadas.filter(m => m.userData.datos);
-  const viva = conDatos.some(m => m.userData.act.clave === 'cool');
-  d.userData.div.className = 'placa card' + (viva ? ' viva' : '');
-  d.userData.div.innerHTML = `${esc(d.userData.nombre)} <span>· ${ocupadas.length ? `${ocupadas.length} ${ocupadas.length === 1 ? 'agente' : 'agentes'}` : 'libre'}</span><i></i>`;
-}
-
-/* ── edificio: pasillo central, despachos alternando norte y sur, tu despacho al fondo ── */
+/* ── planta: recepción al frente, despachos a los lados ── */
 const edificio = new THREE.Group();
 scene.add(edificio);
 let limites = { x0:-10, x1:10, z0:-10, z1:10 };
 
-function construye(cfgs, jefeCfg){
-  const cursor = [0, 0];
-  cfgs.forEach((cfg, i) => {
-    const n = Math.max(cfg.mesas || 2, (cfg.agentes || []).length);
-    const W = Math.max(9, n * SEP_MESA + 2.4);
-    const lado = i % 2; // 0 norte, 1 sur
-    const d = despacho(cfg, W);
-    d.position.set(cursor[lado] + W / 2, 0, (lado ? 1 : -1) * (PASILLO / 2 + FONDO / 2));
-    if (lado) d.rotation.y = Math.PI; // la puerta mira al pasillo también en el lado sur
-    cursor[lado] += W + GROSOR;
-    edificio.add(d);
+function construye(){
+  // Dos filas enfrentadas por el pasillo, repartidas para que la planta quede lo más
+  // cuadrada posible: en línea medía 35 m de ancho y no cabía en una pantalla de móvil.
+  const mitad = Math.ceil(DESPACHOS.length / 2);
+  const filas = [DESPACHOS.slice(0, mitad), DESPACHOS.slice(mitad)];
+  filas.forEach((fila, lado) => {
+    // cada fila se centra sobre el pasillo, así la que tiene menos salas no descuadra la planta
+    const desplazamiento = (Math.max(...filas.map(f => f.length)) - fila.length) * (ANCHO + GROSOR) / 2;
+    fila.forEach((cfg, i) => {
+      const s = sala(cfg);
+      s.position.set(desplazamiento + i * (ANCHO + GROSOR) + ANCHO / 2, 0, (lado ? 1 : -1) * (PASILLO / 2 + FONDO / 2));
+      if (lado) s.rotation.y = Math.PI;
+      edificio.add(s);
+    });
   });
-  const largo = Math.max(...cursor, 12);
+  const largo = Math.max(...filas.map(f => f.length)) * (ANCHO + GROSOR);
 
-  const jefe = despacho(jefeCfg, 10);
-  jefe.position.set(-FONDO / 2 - GROSOR, 0, 0); jefe.rotation.y = Math.PI / 2;
-  edificio.add(jefe);
+  // recepción al frente del pasillo, no en un extremo: así la planta no se alarga y es lo
+  // primero que se ve al entrar
+  const rec = sala(RECEPCION, true);
+  rec.position.set(largo / 2, 0, PASILLO / 2 + FONDO + 6.4 / 2 + 1.2); rec.rotation.y = Math.PI;
+  edificio.add(rec);
+  recepcion = rec;
 
   edificio.position.x = -largo / 2;
   scene.updateMatrixWorld(true);
 
-  for (const { m, w, d } of paredes) obstaculos.push(aabb(m, -w / 2, w / 2, -d / 2, d / 2));
-  for (const m of mesas) obstaculos.push(aabb(m, -1.25, 1.25, -1.5, 0.65)); // mesa + silla o robot
+  for (const s of salas.values()){
+    for (const { m, w, d } of s.userData.paredes) obstaculos.push(aabb(m, -w / 2, w / 2, -d / 2, d / 2));
+    s.userData.zona = aabb(s, -s.userData.W / 2, s.userData.W / 2, -s.userData.D / 2, s.userData.D / 2);
+  }
+  for (const g of puestos.values()) obstaculos.push(aabb(g, -1.1, 1.1, -1.25, 0.6));
   for (const [obj, ...r] of bloques) obstaculos.push(aabb(obj, ...r));
-  for (const d of despachos) d.userData.zona = aabb(d, -d.userData.W / 2, d.userData.W / 2, -d.userData.D / 2, d.userData.D / 2);
-  limites = { x0:-largo / 2 - FONDO - GROSOR - 1, x1:largo / 2 + 1, z0:-(PASILLO / 2 + FONDO + 1), z1:PASILLO / 2 + FONDO + 1 };
+  limites = { x0:-largo / 2 - 6.4 - 2, x1:largo / 2 + 2, z0:-(PASILLO / 2 + FONDO + 1.5), z1:PASILLO / 2 + FONDO + 1.5 };
 
-  // suelo de tarima
-  const w = largo + 24, prof = FONDO * 2 + PASILLO + 18;
+  const w = largo + 26, prof = FONDO * 2 + PASILLO + 20;
   const suelo = new THREE.Mesh(new THREE.PlaneGeometry(w, prof), M.wood);
   suelo.rotation.x = -Math.PI / 2; suelo.receiveShadow = true; suelo.userData.esSuelo = true;
   scene.add(suelo);
@@ -679,22 +664,21 @@ function construye(cfgs, jefeCfg){
     tabla.rotation.x = -Math.PI / 2; tabla.position.set(0, 0.002, zz);
     scene.add(tabla);
   }
-  scene.fog = new THREE.Fog(PAL.night, 26, 70);
+  scene.fog = new THREE.Fog(PAL.night, 30, 80);
 
-  // luz: tarde cálida por las ventanas, relleno frío de pantalla
   scene.add(new THREE.HemisphereLight(PAL.sky, PAL.wood, 0.7));
   scene.add(new THREE.AmbientLight(0xffffff, 0.5));
   const sol = new THREE.DirectionalLight(PAL.amber, 2.1);
-  sol.position.set(-7, 12, 8); sol.castShadow = true;
+  sol.position.set(-7, 14, 9); sol.castShadow = true;
   sol.shadow.mapSize.set(2048, 2048);
-  Object.assign(sol.shadow.camera, { left:-largo / 2 - FONDO - 4, right:largo / 2 + 4, top:prof / 2, bottom:-prof / 2, near:1, far:60 });
+  Object.assign(sol.shadow.camera, { left:-largo / 2 - 10, right:largo / 2 + 6, top:prof / 2, bottom:-prof / 2, near:1, far:70 });
   sol.shadow.bias = -0.0005;
   scene.add(sol);
   const frio = new THREE.DirectionalLight(PAL.sky, 0.55); frio.position.set(6, 5, 8); scene.add(frio);
   return suelo;
 }
 
-/* ── tu personaje: el robot coral ───────────────────── */
+/* ── tu personaje ───────────────────────────────────── */
 const yo = new THREE.Group();
 const yoRobot = robot(PAL.coral);
 yo.add(yoRobot);
@@ -708,15 +692,13 @@ scene.add(yo);
 const teclas = new Set();
 const MOV = new Set(['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright']);
 addEventListener('keydown', e => {
-  if (e.target.closest?.('input,textarea,select')) return; // escribiendo al agente no se mueve el personaje
+  if (e.target.closest?.('input,textarea,select')) return;
   const k = e.key.toLowerCase(); if (MOV.has(k)){ teclas.add(k); e.preventDefault(); }
 });
 addEventListener('keyup', e => teclas.delete(e.key.toLowerCase()));
 addEventListener('blur', () => teclas.clear());
 
 let destino = null;
-function irA(g){ destino = g.localToWorld(new THREE.Vector3(0, 0, 1.6)); }
-
 function mueve(dx, dz){
   const p = yo.position;
   const nx = THREE.MathUtils.clamp(p.x + dx, limites.x0, limites.x1);
@@ -725,63 +707,45 @@ function mueve(dx, dz){
   if (libre(p.x, nz)) p.z = nz;
 }
 
-/* ── selección por cercanía ─────────────────────────── */
-let sel = null, cerrado = null;
+/* ── panel: tarjeta de despacho o chat de recepción ─── */
+let abierto = null;
 const botonCerrar = '<button class="cerrar" aria-label="Cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>';
 
-function metricas(g){
-  const a = g.userData.datos, act = g.userData.act;
-  const cuando = act.fecha ? act.fecha.toLocaleString('es-ES', { dateStyle:'short', timeStyle:'short' }) : null;
-  return `
-    <div class="estado"><i style="background:${CSSCOL[act.clave]};color:${CSSCOL[act.clave]}"></i>${esc(act.texto)}</div>
-    <div class="grid">
-      <div><div class="v">${a.conversaciones}</div><div class="k">Conversaciones</div></div>
-      <div><div class="v">${a.turnos}</div><div class="k">Turnos</div></div>
-      <div><div class="v">${a.coste}</div><div class="k">USD total</div></div>
-      <div><div class="v">${a.coste_medio}</div><div class="k">USD / conv</div></div>
-    </div>
-    <div class="pie">
-      ${cuando ? `última conversación: ${esc(cuando)}<br>` : ''}
-      ${a.incompletas ? `${a.incompletas} conversaciones incompletas<br>` : ''}
-      evals: ${a.evals ? 'sí' : 'no'} · agents/${esc(a.nombre)}${a.existe ? '' : ' (carpeta no existe)'}
-    </div>`;
-}
-
-function pintaPanel(g){
-  const a = g.userData.datos, c = charla(a.nombre);
+function pintaSala(id){
+  const s = salas.get(id), cfg = s.userData.cfg;
   $('#panel').innerHTML = `
     <div class="top">
-      <span class="nm">${esc(titulo(a.nombre))}</span>
-      <span class="mod">${esc((a.modelo || 'sin uso').replace('claude-', ''))}</span>
+      <span class="nm">${esc(cfg.nombre)}</span>
+      <span class="mod">${cfg.puestos.length} ${cfg.puestos.length === 1 ? 'puesto' : 'puestos'}</span>
       ${botonCerrar}
     </div>
-    <div id="metricas">${metricas(g)}</div>
-    <div class="chat">
-      <div class="hilo" id="hilo"></div>
-      ${TK ? `
-      <div class="motores">
-        <button type="button" data-motor="local">Local · gratis</button>
-        <button type="button" data-motor="claude">Claude · ~0,05 USD</button>
-      </div>
-      <form id="envio">
-        <textarea id="texto" rows="1" placeholder="Habla con ${esc(titulo(a.nombre))}…"></textarea>
-        <button type="submit" aria-label="Enviar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
-      </form>
-      <div class="nota" id="nota"></div>`
-      : `<div class="nota">Este navegador no tiene el token del chat. En el PC, abre PowerShell y ejecuta:<br><code>$tk=(Get-Content Apps\\simbai-os\\.token -Raw).Trim(); Start-Process "http://localhost:8790/oficina.html?tk=$tk"</code><br>Se guarda una vez y ya no hace falta más.</div>`}
-    </div>`;
-  $('#panel .cerrar').onclick = () => { cerrado = sel; $('#panel').classList.remove('on'); };
-  $('#panel .motores')?.querySelectorAll('button').forEach(b => b.onclick = () => { c.motor = b.dataset.motor; pintaHilo(a.nombre); });
-  const form = $('#envio');
-  if (form){
-    form.onsubmit = e => { e.preventDefault(); enviar(g); };
-    $('#texto').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); enviar(g); } };
-  }
-  pintaHilo(a.nombre);
+    ${cfg.puestos.map(p => {
+      const e = puestos.get(p)?.userData.estado || { situacion:'libre', detalle:'', cuando:null };
+      const st = SIT[e.situacion];
+      return `<div class="puesto">
+        <i style="background:${st.css};color:${st.css}"></i>
+        <div>
+          <div class="rol">${esc(ROL[p] || titulo(p))}</div>
+          <div class="sit">${st.etiqueta}</div>
+          ${e.detalle ? `<div class="det">${esc(e.detalle)}</div>` : ''}
+          ${e.cuando && hace(e.cuando) ? `<div class="cuando">${esc(hace(e.cuando))}</div>` : ''}
+        </div>
+      </div>`;
+    }).join('')}
+    ${id === 'recepcion' && CFG.chat ? bloqueChat() : `<div class="pie">Clic fuera para volver a la vista general.</div>`}`;
+  $('#panel .cerrar').onclick = () => abre(null);
+  if (id === 'recepcion' && CFG.chat) enlazaChat();
 }
 
-/* ── hablar con el agente: mismo /api/hablar y mismo token que la PWA de SIMBAI OS ── */
-// el token llega en la URL una vez (?tk=…) y queda en localStorage con la misma clave que la PWA, que comparte origen
+function abre(id){
+  abierto = id;
+  for (const [k, s] of salas) s.userData.div.classList.toggle('on', k === id);
+  $('#panel').classList.toggle('on', !!id);
+  if (id){ pintaSala(id); vuela(salas.get(id)); }
+  else vuela(null);
+}
+
+/* ── chat con la asistenta (mismo /api/hablar de SIMBAI OS) ── */
 const TK = (() => {
   const u = new URL(location.href), t = u.searchParams.get('tk');
   if (t){
@@ -791,130 +755,167 @@ const TK = (() => {
   }
   try { return localStorage.getItem('simbai_tk') || ''; } catch { return ''; }
 })();
-const charlas = new Map(); // agente → conversación viva mientras la oficina esté abierta
-let localListo = false;    // hay un modelo de Ollama levantado (/api/modelos); si no, el chat va por Claude
+const AGENTE_RECEPCION = Q.get('agente') || 'recepcion-abogados';
+let localListo = false;
+const charla = { sesion:'oficina-' + Date.now().toString(36), turnos:[], motor:'claude', pensando:false };
+const sinCuerpo = r => r.text().then(() => null);
 const cargaModelos = () => fetch('/api/modelos').then(r => r.ok ? r.json() : sinCuerpo(r)).catch(() => null)
-  .then(m => { localListo = Array.isArray(m) && m.some(x => x.tipo === 'ollama' && x.listo); });
-function charla(nombre){
-  if (!charlas.has(nombre)) charlas.set(nombre, { sesion:'oficina-' + Date.now().toString(36), turnos:[], motor: localListo ? 'local' : 'claude', pensando:false });
-  return charlas.get(nombre);
+  .then(m => { localListo = Array.isArray(m) && m.some(x => x.tipo === 'ollama' && x.listo); if (localListo && !charla.turnos.length) charla.motor = 'local'; });
+
+function bloqueChat(){
+  return `<div class="chat">
+    <div class="hilo" id="hilo"></div>
+    ${TK ? `
+    <div class="motores">
+      <button type="button" data-motor="local">Local · gratis</button>
+      <button type="button" data-motor="claude">Claude · ~0,05 USD</button>
+    </div>
+    <form id="envio">
+      <textarea id="texto" rows="1" placeholder="Pide algo a la asistenta…"></textarea>
+      <button type="submit" aria-label="Enviar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+    </form>
+    <div class="nota" id="nota"></div>`
+    : `<div class="nota">Este navegador no tiene el token del chat. En el PC, abre PowerShell y ejecuta:<br><code>$tk=(Get-Content Apps\\simbai-os\\.token -Raw).Trim(); Start-Process "http://localhost:8790/oficina.html?tk=$tk"</code><br>Se guarda una vez y ya no hace falta más.</div>`}
+  </div>`;
 }
-function pintaHilo(nombre){
-  const c = charla(nombre), hilo = $('#hilo');
+function enlazaChat(){
+  $('#panel .motores')?.querySelectorAll('button').forEach(b => b.onclick = () => { charla.motor = b.dataset.motor; pintaHilo(); });
+  const form = $('#envio');
+  if (form){
+    form.onsubmit = e => { e.preventDefault(); envia(); };
+    $('#texto').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); envia(); } };
+  }
+  pintaHilo();
+}
+function pintaHilo(){
+  const hilo = $('#hilo');
   if (!hilo) return;
-  hilo.innerHTML = c.turnos.map(t => t.tipo === 'err'
+  hilo.innerHTML = charla.turnos.map(t => t.tipo === 'err'
     ? `<div class="m err">${esc(t.texto)}</div>`
     : `<div class="m ${t.tipo}">${esc(t.texto)}</div>` + (t.tipo === 'el' ? `<div class="meta">${t.motor === 'local' ? 'local · gratis' : `${t.coste ?? '?'} USD`}${t.ms ? ` · ${Math.round(t.ms / 1000)} s` : ''}</div>` : '')
-  ).join('') + (c.pensando ? '<div class="m el"><span class="dots">Pensando</span></div>' : '');
+  ).join('') + (charla.pensando ? '<div class="m el"><span class="dots">Pensando</span></div>' : '');
   hilo.scrollTop = hilo.scrollHeight;
-  if (!localListo && c.motor === 'local') c.motor = 'claude';
+  if (!localListo && charla.motor === 'local') charla.motor = 'claude';
   const bl = $('#panel .motores button[data-motor=local]');
   if (bl){ bl.disabled = !localListo; bl.textContent = localListo ? 'Local · gratis' : 'Local · Ollama apagado'; }
-  $('#panel .motores')?.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.motor === c.motor));
+  $('#panel .motores')?.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.motor === charla.motor));
   const ta = $('#texto'), bt = $('#envio button');
-  if (ta){ ta.disabled = c.pensando; bt.disabled = c.pensando; }
+  if (ta){ ta.disabled = charla.pensando; bt.disabled = charla.pensando; }
   const nota = $('#nota');
-  if (nota) nota.textContent = c.motor === 'local'
+  if (nota) nota.textContent = charla.motor === 'local'
     ? 'Modelo local: gratis y no sale de tu PC, pero tarda alrededor de un minuto. Queda en el log del agente.'
     : (localListo ? '' : 'Ollama está apagado: arráncalo para hablar gratis en local. ') + 'Conversación real con Claude: unos 0,04 USD por mensaje. Queda en el log del agente.';
 }
-async function enviar(g){
-  const a = g.userData.datos, c = charla(a.nombre), ta = $('#texto');
-  const texto = ta?.value.trim();
-  if (!texto || c.pensando) return;
+async function envia(){
+  const ta = $('#texto'), texto = ta?.value.trim();
+  if (!texto || charla.pensando) return;
   ta.value = '';
-  c.turnos.push({ tipo:'mio', texto }); c.pensando = true;
-  pintaHilo(a.nombre);
-  animo(g, 'pensando');
+  charla.turnos.push({ tipo:'mio', texto }); charla.pensando = true;
+  pintaHilo();
+  const g = puestos.get('asistenta');
+  if (g) animo(g, 'pensando');
   try {
     const r = await fetch('/api/hablar', {
       method:'POST',
       headers:{ 'Content-Type':'application/json', 'X-Token':TK },
-      body:JSON.stringify({ agente:a.nombre, mensaje:texto, sesion:c.sesion, motor:c.motor }),
+      body:JSON.stringify({ agente:AGENTE_RECEPCION, mensaje:texto, sesion:charla.sesion, motor:charla.motor }),
     });
     const d = await r.json().catch(() => ({}));
-    if (!r.ok) c.turnos.push({ tipo:'err', texto:
+    if (!r.ok) charla.turnos.push({ tipo:'err', texto:
       r.status === 401 ? 'Token no válido: abre SIMBAI OS con tu enlace en este navegador y vuelve.'
       : (r.status === 404 || r.status === 501) ? 'El chat vive en SIMBAI OS (puerto 8790), no en el servidor mínimo.'
-      // 503: el puente Node se ha caído; start.ps1 lo levanta, pero reinicia todo SIMBAI OS
       : r.status === 503 ? 'El puente de agentes está parado. En PowerShell: powershell -File Apps\\simbai-os\\start.ps1'
       : d.error || `HTTP ${r.status}` });
-    else { c.turnos.push({ tipo:'el', texto:d.texto, coste:d.coste, ms:d.ms, motor:d.motor }); di(g, d.texto || ''); }
+    else { charla.turnos.push({ tipo:'el', texto:d.texto, coste:d.coste, ms:d.ms, motor:d.motor }); if (g) di(g, d.texto || ''); }
   } catch {
-    c.turnos.push({ tipo:'err', texto:'Sin conexión con el PC.' });
+    charla.turnos.push({ tipo:'err', texto:'Sin conexión con el PC.' });
   }
-  c.pensando = false;
-  if (c.turnos.at(-1).tipo === 'err') animo(g, null);
-  if (sel === g) pintaHilo(a.nombre); // si te has ido a otra mesa, el hilo se conserva para cuando vuelvas
+  charla.pensando = false;
+  if (charla.turnos.at(-1).tipo === 'err' && g) animo(g, null);
+  pintaHilo();
 }
-// ánimo del robot mientras conversa: pensando (violeta) y hablando (cielo); null vuelve a su estado real
+// la asistenta piensa y habla mientras conversa; luego vuelve a su estado del JSON
 function animo(g, estado, hasta = 0){
   const u = g.userData;
   u.animo = estado; u.animoHasta = hasta;
   if (estado === 'pensando') colorea(u.robot, PAL.plum, 1);
   else if (estado === 'hablando') colorea(u.robot, PAL.sky, 1);
   else {
-    u.bocadillo.visible = false; u.etiqueta.visible = !!u.nombre;
-    if (u.act) colorea(u.robot, ESTADO[u.act.clave], u.act.clave === 'dim' ? 0.45 : 1);
+    u.bocadillo.visible = false;
+    if (u.estado) aplica('asistenta', u.estado);
   }
 }
 function di(g, texto){
   const u = g.userData;
   u.bocadillo.element.textContent = texto.length > 160 ? texto.slice(0, 157).trimEnd() + '…' : texto;
-  u.bocadillo.visible = true; u.etiqueta.visible = false;
+  u.bocadillo.visible = true;
   animo(g, 'hablando', reloj.getElapsed() + THREE.MathUtils.clamp(2 + texto.length * 0.045, 3, 10));
 }
 
-// tu mesa: el briefing del CRM que ya calcula el servidor en /api/acciones
-function pintaPanelJefe(){
-  const b = briefing?.briefing, ag = ultimoAgentes;
-  $('#panel').innerHTML = `
-    <div class="top">
-      <span class="nm">${esc(despachos.at(-1).userData.nombre)}</span>
-      <span class="mod">CRM</span>
-      ${botonCerrar}
-    </div>
-    ${b ? `
-    <div class="estado"><i style="background:${b.vencidos ? CSSCOL.warm : CSSCOL.cool};color:${b.vencidos ? CSSCOL.warm : CSSCOL.cool}"></i>${b.vencidos ? `${b.vencidos} seguimientos vencidos` : 'sin seguimientos vencidos'}</div>
-    <div class="grid">
-      <div><div class="v">${b.activos}</div><div class="k">Prospectos activos</div></div>
-      <div><div class="v">${b.frios}</div><div class="k">Fríos, +90 días</div></div>
-      <div><div class="v">${eur(b.valor_activo)}</div><div class="k">Valor activo</div></div>
-      <div><div class="v">${eur(b.ponderado_activo)}</div><div class="k">Ponderado</div></div>
-    </div>
-    <div class="pie">
-      ${b.top?.length ? `mejor puntuados: ${b.top.slice(0, 3).map(t => esc(t.empresa)).join(' · ')}<br>` : ''}
-      ${ag ? `${ag.agentes.length} agentes · ${ag.conversaciones_total} conv · ${ag.coste_total} USD` : ''}
-    </div>`
-    : `<div class="estado"><i style="background:${CSSCOL.dim};color:${CSSCOL.dim}"></i>sin datos del CRM: /api/acciones no responde</div>`}`;
-  $('#panel .cerrar').onclick = () => { cerrado = sel; $('#panel').classList.remove('on'); };
-}
-
-function selecciona(g){
-  sel = g;
-  if (g !== cerrado) cerrado = null;
-  for (const m of mesas) m.userData.div.classList.toggle('on', m === g);
-  const abre = !!g && g !== cerrado;
-  $('#panel').classList.toggle('on', abre);
-  if (abre) g.userData.jefe ? pintaPanelJefe() : pintaPanel(g);
-}
-
-/* ── cámara y entrada ───────────────────────────────── */
+/* ── cámara ─────────────────────────────────────────── */
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true; controls.dampingFactor = 0.08;
 controls.enablePan = false;
-controls.minDistance = 4; controls.maxDistance = 26;
+controls.minDistance = 5; controls.maxDistance = 46; // lo sube encuadraGeneral si la planta pide más
 controls.minPolarAngle = 0.35; controls.maxPolarAngle = 1.2;
 
-// la cámara se coloca detrás del personaje, mirando hacia donde mira él
-function encuadra(){
-  const lejos = Math.max(1, 0.85 * innerHeight / innerWidth); // en vertical la cámara se aleja para que quepa el despacho
-  const fx = Math.sin(yo.rotation.y), fz = Math.cos(yo.rotation.y);
-  controls.target.set(yo.position.x, 1, yo.position.z);
-  camera.position.set(yo.position.x - fx * 11 * lejos, 7.5 * lejos, yo.position.z - fz * 11 * lejos);
-  controls.update();
+const vistaGeneral = { pos:new THREE.Vector3(), tgt:new THREE.Vector3() };
+let vuelo = null; // {pos, tgt} destino de cámara mientras dura la interpolación
+
+// La planta entera cabe en pantalla. La fórmula teórica falla porque los rótulos miden en
+// píxeles y no encogen al alejar, así que se proyectan las ocho esquinas de la caja y se
+// aleja la cámara hasta que todas caen dentro del margen pedido.
+const MARGEN = 0.95; // fracción de la pantalla que puede ocupar la planta
+function encuadraGeneral(){
+  // la caja se arma con las zonas de las salas, no con setFromObject: los haces de luz del
+  // suelo y las sombras sobresalen del edificio y descentraban el encuadre
+  const caja = new THREE.Box3();
+  for (const s of salas.values()){
+    const z = s.userData.zona;
+    if (z) caja.expandByPoint(new THREE.Vector3(z.x0, 0, z.z0)).expandByPoint(new THREE.Vector3(z.x1, ALTO, z.z1));
+  }
+  if (caja.isEmpty()){ vistaGeneral.tgt.set(0, 1, 0); vistaGeneral.pos.set(6, 22, 26); return; }
+  const c = caja.getCenter(new THREE.Vector3()), t = caja.getSize(new THREE.Vector3());
+  // en vertical la cámara se alza un poco más: la pantalla estrecha necesita menos diagonal
+  const vertical = camera.aspect < 1;
+  const dir = vertical ? new THREE.Vector3(0.12, 0.86, 0.5).normalize() : new THREE.Vector3(0.18, 0.72, 0.67).normalize();
+  const tgt = new THREE.Vector3(c.x, 1, c.z);
+  // solo las cuatro esquinas del suelo: incluir la altura de los muros alejaba de más,
+  // porque en picado su parte alta se proyecta muy por encima de la planta
+  const esquinas = [];
+  for (const sx of [-1, 1]) for (const sz of [-1, 1])
+    esquinas.push(new THREE.Vector3(c.x + sx * t.x / 2, 0, c.z + sz * t.z / 2));
+
+  const prueba = camera.clone();
+  let d = Math.max(t.x, t.z);
+  for (let i = 0; i < 24; i++){
+    prueba.position.copy(tgt).addScaledVector(dir, d);
+    prueba.lookAt(tgt);
+    prueba.updateMatrixWorld(true);
+    prueba.updateProjectionMatrix();
+    let mx = 0, my = 0;
+    for (const e of esquinas){
+      const p = e.clone().project(prueba);
+      mx = Math.max(mx, Math.abs(p.x)); my = Math.max(my, Math.abs(p.y));
+    }
+    // En vertical se encuadra por el alto y se deja que el ancho se recorte: la planta mide
+    // 29 m y forzarla en 375 px la dejaba como un punto. El usuario gira o acerca para el resto.
+    const max = vertical ? my : Math.max(mx, my);
+    if (Math.abs(max - MARGEN) < 0.02) break;
+    d *= max / MARGEN;
+  }
+  vistaGeneral.tgt.copy(tgt);
+  vistaGeneral.pos.copy(tgt).addScaledVector(dir, d);
+  // sin esto OrbitControls recorta la distancia y la planta se sale por los lados
+  controls.maxDistance = Math.max(46, d + 4);
 }
-$('#vista').onclick = encuadra;
+function vuela(sala){
+  if (!sala){ vuelo = { pos:vistaGeneral.pos.clone(), tgt:vistaGeneral.tgt.clone() }; return; }
+  const c = sala.getWorldPosition(new THREE.Vector3());
+  const frente = new THREE.Vector3(0, 0, 1).applyQuaternion(sala.quaternion).multiplyScalar(sala.userData.D * 0.85 + 5);
+  vuelo = { tgt:new THREE.Vector3(c.x, 1.2, c.z), pos:new THREE.Vector3(c.x + frente.x, 8.5, c.z + frente.z) };
+}
+$('#vista').onclick = () => abre(null);
 
 const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
 let bajada = null, suelo = null;
@@ -923,13 +924,14 @@ renderer.domElement.addEventListener('pointerup', e => {
   if (!bajada || Math.hypot(e.clientX - bajada[0], e.clientY - bajada[1]) > 6) return;
   ptr.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
   ray.setFromCamera(ptr, camera);
-  const hit = ray.intersectObjects([suelo, ...mesas], true)[0];
-  if (!hit) return;
+  const hit = ray.intersectObjects([suelo, ...salas.values()], true)[0];
+  if (!hit){ abre(null); return; }
   let o = hit.object;
-  while (o && !o.userData.esMesa && !o.userData.esSuelo) o = o.parent;
-  if (o?.userData.esMesa) irA(o);
-  else destino = new THREE.Vector3(hit.point.x, 0, hit.point.z);
+  while (o && !o.userData.cfg && !o.userData.esSuelo) o = o.parent;
+  if (o?.userData.cfg) abre(o.userData.cfg.id);
+  else { abre(null); destino = new THREE.Vector3(hit.point.x, 0, hit.point.z); }
 });
+addEventListener('keydown', e => { if (e.key === 'Escape') abre(null); });
 
 const etiquetas = new CSS2DRenderer({ element: $('#etiquetas') });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -942,6 +944,7 @@ $('#escena').appendChild(renderer.domElement);
 function redimensiona(){
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight); etiquetas.setSize(innerWidth, innerHeight);
+  encuadraGeneral();
 }
 addEventListener('resize', redimensiona);
 redimensiona();
@@ -949,18 +952,30 @@ redimensiona();
 /* ── bucle ──────────────────────────────────────────── */
 const reloj = new THREE.Timer();
 const tmp = new THREE.Vector3(), frente = new THREE.Vector3();
-let zonaActual = '';
+let zonaActual = '', fps = 60, degradado = false;
+
+// si el portátil no da 30 fps, se simplifica la escena antes de tocar los despachos
+function degrada(){
+  degradado = true;
+  renderer.shadowMap.enabled = false;
+  renderer.setPixelRatio(1);
+  for (const g of puestos.values()) g.userData.baliza.userData.luz.visible = false;
+  scene.traverse(o => { if (o.isMesh) o.castShadow = false; });
+  renderer.shadowMap.needsUpdate = true;
+  console.info('oficina: modo ligero (sombras y luces de robot fuera)');
+}
 
 function bucle(){
   reloj.update();
   const t = reloj.getElapsed(), dt = Math.min(reloj.getDelta(), 0.05);
+  fps += (1 / Math.max(dt, 1e-3) - fps) * 0.05;
+  if (!degradado && t > 6 && fps < 30) degrada();
 
-  // movimiento: teclado relativo a la cámara, o hacia el destino tocado
   let mx = 0, mz = 0;
   const dx = +(teclas.has('d') || teclas.has('arrowright')) - +(teclas.has('a') || teclas.has('arrowleft'));
   const dz = +(teclas.has('w') || teclas.has('arrowup')) - +(teclas.has('s') || teclas.has('arrowdown'));
   if (dx || dz){
-    destino = null;
+    destino = null; vuelo = null;
     frente.subVectors(controls.target, camera.position).setY(0).normalize();
     mx = frente.x * dz - frente.z * dx;
     mz = frente.z * dz + frente.x * dx;
@@ -974,148 +989,122 @@ function bucle(){
     const antesX = yo.position.x, antesZ = yo.position.z;
     mueve(mx / len * VEL * dt, mz / len * VEL * dt);
     andando = Math.hypot(yo.position.x - antesX, yo.position.z - antesZ) > 1e-4;
-    if (!andando) destino = null; // bloqueado por una pared o una mesa
+    if (!andando) destino = null;
     else yo.rotation.y = Math.atan2(mx, mz);
   }
   if (!quieto) animaRobot(yoRobot, t, dt, { s: andando ? 2.2 : 1, amp: andando ? 0.22 : 0.07 });
 
-  // la cámara sigue al personaje conservando el ángulo y la distancia elegidos
-  tmp.set(yo.position.x, 1, yo.position.z).sub(controls.target).multiplyScalar(0.12);
-  controls.target.add(tmp); camera.position.add(tmp);
+  if (vuelo){
+    const k = 1 - Math.pow(0.002, dt);
+    camera.position.lerp(vuelo.pos, k);
+    controls.target.lerp(vuelo.tgt, k);
+    if (camera.position.distanceTo(vuelo.pos) < 0.08) vuelo = null;
+  } else if (andando || destino){
+    tmp.set(yo.position.x, 1, yo.position.z).sub(controls.target).multiplyScalar(0.12);
+    controls.target.add(tmp); camera.position.add(tmp);
+  }
   controls.update();
 
-  // cercanía: la mesa con datos más próxima dentro del alcance
-  let cerca = null, mejor = ALCANCE;
-  for (const g of [...porNombre.values(), mesaJefe]){
-    g.getWorldPosition(tmp);
-    const d = Math.hypot(tmp.x - yo.position.x, tmp.z - yo.position.z);
-    if (d < mejor){ mejor = d; cerca = g; }
-  }
-  if (cerca !== sel) selecciona(cerca);
-
-  const z = despachos.find(d => { const o = d.userData.zona; return yo.position.x > o.x0 && yo.position.x < o.x1 && yo.position.z > o.z0 && yo.position.z < o.z1; });
-  const nombre = z ? z.userData.nombre : 'Pasillo';
-  if (nombre !== zonaActual){
-    zonaActual = nombre;
-    $('#zona').innerHTML = !z ? 'Pasillo' : z.userData.tuyo ? `<b>${esc(nombre)}</b>` : `Despacho · <b>${esc(nombre)}</b>`;
-  }
+  const z = [...salas.values()].find(s => { const o = s.userData.zona; return yo.position.x > o.x0 && yo.position.x < o.x1 && yo.position.z > o.z0 && yo.position.z < o.z1; });
+  const nombre = z ? z.userData.cfg.nombre : 'Planta';
+  if (nombre !== zonaActual){ zonaActual = nombre; $('#zona').innerHTML = z ? `<b>${esc(nombre)}</b>` : 'Planta'; }
 
   if (!quieto){
-    for (const g of mesas){
+    // solo animan los que trabajan; el resto apenas flota
+    for (const g of puestos.values()){
       const u = g.userData;
-      if (!u.robot.visible) continue;
       if (u.animo === 'hablando' && t > u.animoHasta) animo(g, null);
-      const activo = u.act?.clave === 'cool';
-      animaRobot(u.robot, t, dt, {
-        s: u.animo === 'pensando' ? 1.7 : u.animo === 'hablando' ? 2.4 : activo ? 3.4 : u.datos ? 1.4 : 0.6,
-        amp: u.animo === 'hablando' ? 0.16 : activo ? 0.26 : 0.07,
-        mira: yo.position, habla: u.animo === 'hablando', piensa: u.animo === 'pensando',
-      });
+      if (u.animo) animaRobot(u.robot, t, dt, { s: u.animo === 'pensando' ? 1.7 : 2.4, amp:0.16, habla:u.animo === 'hablando', mira:yo.position });
+      else if (u.estado?.situacion === 'trabajando') animaRobot(u.robot, t, dt, { s:3.2, amp:0.26, mira:yo.position });
+      else reposa(u.robot, t);
+      if (u.barras.visible) for (const b of u.barras.children){
+        const h = 0.3 + (Math.sin(t * 1.6 + b.userData.k) * 0.5 + 0.5) * 0.7;
+        b.scale.y = h; b.position.y = h * 0.25;
+      }
     }
-    for (const gr of graficos) if (gr.visible) for (const b of gr.children){
-      if (b.userData.k === undefined) continue;
-      const h = 0.3 + (Math.sin(t * 1.6 + b.userData.k) * 0.5 + 0.5) * 0.7;
-      b.scale.y = h; b.position.y = h * 0.25;
-    }
-    for (const [k, led] of leds.entries()) led.material.opacity = 0.35 + (Math.sin(t * 3 + k * 1.7) * 0.5 + 0.5) * 0.65;
     for (const h of plantas) h.rotation.z = Math.sin(t * 0.8 + h.position.x) * 0.04;
-    for (const m of motas){ m.position.y = 1.4 + Math.sin(t * 0.8 + m.userData.fase) * 0.35; m.rotation.y = t * 0.4 + m.userData.fase; }
   }
 
   renderer.render(scene, camera);
   etiquetas.render(scene, camera);
 }
 
-/* ── datos ──────────────────────────────────────────── */
-// si la respuesta no es ok se lee igualmente el cuerpo: un fetch sin consumir deja la petición abierta
-const sinCuerpo = r => r.text().then(() => null);
-const cargaBriefing = () => fetch('/api/acciones').then(r => r.ok ? r.json() : sinCuerpo(r)).catch(() => null);
-async function carga(){
-  const r = await fetch('/api/agentes');
-  if (!r.ok) throw new Error(String(r.status));
-  return r.json();
+/* ── datos: el JSON del brief ───────────────────────── */
+let sinConexion = false;
+
+// función pública del brief: recibe el objeto y actualiza toda la escena
+function actualiza(datos){
+  const est = normaliza(datos);
+  for (const [id, e] of Object.entries(est)){
+    const g = puestos.get(id);
+    if (g && !g.userData.animo) aplica(id, e);
+    else if (g) g.userData.estado = e; // conversando: se guarda y se aplica al terminar
+  }
+  for (const [id, s] of salas){
+    const cfg = s.userData.cfg;
+    const suyos = cfg.puestos.map(p => est[p]?.situacion || 'libre');
+    const trabajando = suyos.filter(x => x === 'trabajando').length;
+    const parados = suyos.filter(x => x === 'parado').length;
+    s.userData.div.className = 'placa card' + (trabajando ? ' activa' : parados === suyos.length ? ' parada' : '');
+    // data-ini: en vertical el CSS muestra solo esta inicial dentro de una pastilla redonda
+    s.userData.div.dataset.ini = cfg.nombre[0];
+    s.userData.div.innerHTML = `<b>${esc(cfg.nombre)}</b> <span>· ${trabajando ? `${trabajando} trabajando` : parados ? 'parado' : 'libre'}</span><i></i>`;
+  }
+  if (abierto) pintaSala(abierto);
+  const total = Object.values(est).filter(e => e.situacion === 'trabajando').length;
+  const clave = sinConexion ? 'libre' : total ? 'trabajando' : 'libre';
+  $('#estado').style.setProperty('--dot', SIT[clave].css);
+  $('#estado span').textContent = sinConexion ? 'sin conexión con los agentes'
+    : total ? `${total} ${total === 1 ? 'agente trabajando' : 'agentes trabajando'} de 11` : '11 agentes libres';
 }
-function sello(d, conectado = true){
-  const claves = d.agentes.map(a => actividad(a).clave);
-  const activos = claves.filter(c => c === 'cool').length;
-  const clave = !conectado ? 'dim' : activos ? 'cool' : claves.includes('warm') ? 'warm' : 'dim';
-  const texto = !conectado ? 'sin conexión con los agentes'
-    : activos ? `${activos} ${activos === 1 ? 'agente activo' : 'agentes activos'} · ${d.conversaciones_total} conv · ${d.coste_total} USD`
-    : d.agentes.length ? `${d.agentes.length} agentes · sin actividad hoy` : 'sin agentes';
-  $('#estado').style.setProperty('--dot', CSSCOL[clave]);
-  $('#estado span').textContent = texto;
+if (Q.has('test')) window.__actualiza = actualiza;
+
+async function sondea(){
+  if (!CFG.estado) return;
+  try {
+    const r = await fetch(CFG.estado, { cache:'no-store' });
+    if (!r.ok) throw new Error(String(r.status));
+    const d = await r.json();
+    sinConexion = false;
+    $('#aviso').textContent = '';
+    actualiza(d);
+  } catch {
+    // el endpoint no responde: la oficina sigue en pie, todos libres
+    if (!sinConexion){
+      sinConexion = true;
+      $('#aviso').textContent = 'Sin conexión con el panel de estado: se muestran todos libres';
+      actualiza(null);
+    }
+  }
 }
 
 async function principal(){
-  let d, cfgs, conectado = true;
-  [d, cfgs, briefing] = await Promise.all([
-    carga().catch(() => { conectado = false; return { agentes:[], conversaciones_total:0, coste_total:0 }; }),
-    fetch('despachos.json').then(r => r.ok ? r.json() : sinCuerpo(r)).catch(() => null),
-    cargaBriefing(),
-    cargaModelos(),
-  ]);
-  ultimoAgentes = d;
-  if (!conectado) $('#aviso').textContent = 'No llego a los agentes: la oficina se muestra sin datos';
-  if (!Array.isArray(cfgs) || !cfgs.length) cfgs = [{ nombre:'SIMBAI', agentes:d.agentes.map(a => a.nombre) }];
-  const jefeCfg = cfgs.find(c => c.tuyo) || { nombre:'Tu despacho', tuyo:true };
-  cfgs = cfgs.filter(c => !c.tuyo);
-  if (!cfgs.length) cfgs = [{ nombre:'SIMBAI', agentes:[] }];
+  suelo = construye();
+  const rec = recepcion.getWorldPosition(new THREE.Vector3());
+  yo.position.set(rec.x + 5, 0, rec.z);
+  yo.rotation.y = -Math.PI / 2;
+  encuadraGeneral(); // ya con el edificio en la escena: la caja real manda
+  camera.position.copy(vistaGeneral.pos); controls.target.copy(vistaGeneral.tgt); controls.update();
 
-  // ponytail: los agentes sin despacho asignado van al primero
-  const asignados = new Set(cfgs.flatMap(c => c.agentes || []));
-  const sueltos = d.agentes.map(a => a.nombre).filter(n => !asignados.has(n));
-  if (sueltos.length) (cfgs[0].agentes ??= []).push(...sueltos);
+  // la oficina se pinta antes de pedir nada: ningún fallo de red puede dejarla cargando
+  actualiza(CFG.estado ? null : EJEMPLO);
+  cargaModelos().catch(() => {});
+  if (CFG.estado){ sondea(); setInterval(sondea, 5000); }
+  setInterval(() => cargaModelos().catch(() => {}), 30_000);
 
-  suelo = construye(cfgs, jefeCfg);
-
-  const datos = new Map(d.agentes.map(a => [a.nombre, a]));
-  despachos.forEach((desp, i) => {
-    if (desp.userData.tuyo){ pintaPlaca(desp); return; }
-    const nombres = cfgs[i].agentes || [];
-    desp.userData.mesas.forEach((m, k) => {
-      const a = nombres[k] ? datos.get(nombres[k]) : null;
-      if (nombres[k] && !a && conectado) console.warn(`despachos.json: el agente "${nombres[k]}" no existe en /api/agentes`);
-      aplica(m, a || null, nombres[k] || null);
-    });
-    pintaPlaca(desp);
-  });
-  sello(d, conectado);
-
-  // empiezas en tu despacho, junto a tu mesa, mirando a la puerta y al pasillo
-  const jefe = despachos.at(-1);
-  const inicio = jefe.localToWorld(new THREE.Vector3(1.4, 0, 0.5));
-  const hacia = jefe.localToWorld(new THREE.Vector3(1.4, 0, 10)).sub(inicio).setY(0).normalize();
-  yo.position.set(inicio.x, 0, inicio.z);
-  yo.rotation.y = Math.atan2(hacia.x, hacia.z);
-  encuadra();
-
-  if (location.search === '?test') window.__oficina = {
-    yo,
-    puertaSimbai: despachos[0].localToWorld(new THREE.Vector3(0, 0, FONDO / 2 + 1.6)),
-    mesaSimbai: despachos[0].userData.mesas[0].getWorldPosition(new THREE.Vector3()),
+  if (Q.has('test')) window.__oficina = {
+    yo, puestos, salas, cam:camera.position, camara:camera, target:controls.target, maxDistance:controls.maxDistance, V3:THREE.Vector3,
+    recepcion: rec,
+    mercados: salas.get('mercados').getWorldPosition(new THREE.Vector3()),
+    estado: id => puestos.get(id)?.userData.estado,
+    fps: () => Math.round(fps), sombras: () => renderer.shadowMap.enabled,
   };
 
   $('#ayuda span').textContent = tactil
-    ? 'toca el suelo para moverte · acércate a un agente'
-    : 'WASD o flechas para moverte · clic en el suelo para ir · acércate a un agente · arrastra para girar la cámara';
+    ? 'toca un despacho para verlo · toca el suelo para moverte'
+    : 'clic en un despacho para verlo · WASD para moverte · arrastra para orbitar · rueda para zoom';
   $('#msg').remove();
   renderer.setAnimationLoop(bucle);
-
-  // ponytail: el refresco actualiza mesas existentes; un despacho o agente nuevo aparece al recargar
-  setInterval(async () => {
-    try {
-      const [n, b] = await Promise.all([carga(), cargaBriefing(), cargaModelos()]);
-      ultimoAgentes = n; briefing = b ?? briefing;
-      if (sel?.userData.datos && $('#panel').classList.contains('on')) pintaHilo(sel.userData.datos.nombre); // por si Ollama ha arrancado
-      $('#aviso').textContent = '';
-      const datosN = new Map(n.agentes.map(a => [a.nombre, a]));
-      for (const g of mesas) if (g.userData.nombre) aplica(g, datosN.get(g.userData.nombre) || null, g.userData.nombre);
-      despachos.forEach(pintaPlaca);
-      sello(n);
-      // las métricas se refrescan sin tocar el chat: hay un textarea que puede estar a medio escribir
-      if (sel && $('#panel').classList.contains('on')) sel.userData.jefe ? pintaPanelJefe() : ($('#metricas').innerHTML = metricas(sel));
-    } catch { /* el siguiente intento lo recupera */ }
-  }, 30_000);
 }
 if (renderer) principal();
 </script>
