@@ -16,6 +16,18 @@ Una planta cartoon con seis despachos de dos puestos y una recepción. Cada agen
 | Auditoría | auditor técnico, auditor de negocio | endpoint de estados |
 | SIMBAI | captacion-crm, recepcion-abogados | `/api/agentes`, los agentes que existen de verdad |
 
+## Cómo está distribuida la planta
+
+Los despachos siguen el recorrido de un encargo, como en una oficina de verdad. Desde la entrada hacia el fondo:
+
+| Distancia a la entrada | Norte | Sur |
+|---|---|---|
+| Junto a recepción | Mercados, que capta | SIMBAI, los agentes que atienden |
+| Centro | Visuales | Desarrollo |
+| Fondo | Automatizaciones | Auditoría |
+
+Lo que trata con fuera queda cerca de la puerta, la producción en medio y el trabajo técnico y de control al fondo, donde hay menos paso. Las dos filas se leen en paralelo, así que lo que se pasa trabajo queda enfrentado. El orden vive en la constante `ORDEN` del script.
+
 Los dos puestos de cada despacho van en L sobre la misma esquina, con una pizarra compartida: el trabajo pasa de uno a otro y la escena lo cuenta.
 
 El despacho SIMBAI es distinto: sus dos puestos son los agentes reales de `agents/`. Su estado sale de cuándo conversaron por última vez, su tarjeta muestra conversaciones, turnos y coste acumulado, y desde ella se puede hablar con cualquiera de los dos. El endpoint de estados no los toca.

@@ -242,6 +242,18 @@ const ROL = {
   'captacion-crm':'Captación CRM', 'recepcion-abogados':'Recepción Abogados',
 };
 const REALES = new Set(SIMBAI.puestos);
+
+// Orden de una oficina real: desde la entrada hacia el fondo, siguiendo el recorrido de un
+// encargo. Primero lo que trata con fuera (captación y los agentes que atienden), en medio la
+// producción, y al fondo lo técnico y el control, que son los que necesitan menos ruido.
+// Las dos filas se leen en paralelo: lo que se pasa trabajo queda enfrentado.
+// Recepción cierra el pasillo por el sureste, así que la fila sur se lee de derecha a
+// izquierda: lo más cercano a la entrada va al final de su lista.
+const ORDEN = {
+  norte: ['automatizaciones', 'visuales', 'mercados'],
+  sur:   ['auditoria', 'desarrollo', 'simbai'],
+};
+
 const EJEMPLO = {
   despachos: {
     explorador: { despacho:'mercados', situacion:'trabajando', detalle:'busca oportunidades en hoteles de Málaga', cuando:new Date().toISOString() },
@@ -316,6 +328,10 @@ if (Q.has('test')){
   console.assert(normaliza({ despachos:{ analista:{ situacion:'inventada' } } }).analista.situacion === 'libre', 'situacion desconocida = libre');
   const caja = [{ x0:-1, x1:1, z0:-1, z1:1 }];
   console.assert(!libre(0, 0, caja) && libre(1.5, 0, caja), 'colision');
+  const colocados = [...ORDEN.norte, ...ORDEN.sur];
+  console.assert(colocados.length === new Set(colocados).size, 'ningún despacho repetido en ORDEN');
+  console.assert(DESPACHOS.every(d => colocados.includes(d.id)), 'todos los despachos tienen sitio');
+  console.assert(colocados.every(id => DESPACHOS.some(d => d.id === id)), 'ORDEN no nombra despachos inexistentes');
   console.log('ok normaliza y colision');
 }
 
@@ -657,8 +673,14 @@ let limites = { x0:-10, x1:10, z0:-10, z1:10 };
 function construye(){
   // Dos filas enfrentadas por el pasillo, repartidas para que la planta quede lo más
   // cuadrada posible: en línea medía 35 m de ancho y no cabía en una pantalla de móvil.
-  const mitad = Math.ceil(DESPACHOS.length / 2);
-  const filas = [DESPACHOS.slice(0, mitad), DESPACHOS.slice(mitad)];
+  const porId = new Map(DESPACHOS.map(d => [d.id, d]));
+  const usados = new Set([...ORDEN.norte, ...ORDEN.sur]);
+  const filas = [
+    ORDEN.norte.map(id => porId.get(id)).filter(Boolean),
+    ORDEN.sur.map(id => porId.get(id)).filter(Boolean),
+  ];
+  // un despacho nuevo que no esté en ORDEN no desaparece: se añade a la fila más corta
+  for (const d of DESPACHOS) if (!usados.has(d.id)) filas[filas[0].length <= filas[1].length ? 0 : 1].push(d);
   filas.forEach((fila, lado) => {
     // cada fila se centra sobre el pasillo, así la que tiene menos salas no descuadra la planta
     const desplazamiento = (Math.max(...filas.map(f => f.length)) - fila.length) * (ANCHO + GROSOR) / 2;
