@@ -1,6 +1,6 @@
 # Oficina SIMBAI: trece agentes de IA en una planta 3D
 
-Una planta cartoon con seis despachos de dos puestos y una recepción. Cada agente es un robot flotante cuyo color dice si trabaja, está libre o se ha parado. Tú entras con tu robot coral, te acercas a quien quieras y hablas con la asistenta de recepción o con los agentes reales.
+Una planta cartoon con seis despachos de dos puestos y una recepción. Cada agente es un robot flotante cuyo color dice si trabaja, está libre o se ha parado. Tú entras con tu robot azul, te acercas a quien quieras y hablas con la asistenta de recepción o con los agentes reales.
 
 ![Planta de la oficina](docs/captura.png)
 
@@ -26,9 +26,9 @@ El color se ve desde la vista general, sin acercarse, en el robot y en la baliza
 
 | Estado | Color | Qué significa |
 |---|---|---|
-| trabajando | mint | el agente está ocupado; solo estos se animan |
-| libre | azul cielo | disponible |
-| parado | violeta | el motor local no responde |
+| trabajando | ámbar | el agente está ocupado; solo estos se animan |
+| libre | azul frío | disponible |
+| parado | crema apagada | el motor local no responde |
 
 ## Ejecutar
 
@@ -91,7 +91,7 @@ Un agente que no aparezca se muestra libre. Si el endpoint no responde, la plant
 | `embed` | `0` | HUD compacto para iframe |
 | `name` | `OFICINA SIMBAI` | nombre en la cabecera |
 | `tagline` | `trece agentes, seis despachos` | subtítulo |
-| `accent` | `%2335E0AE` | color de marca, también el de "trabajando" |
+| `accent` | `%23d4873a` | color de marca, también el de "trabajando" |
 | `chat` | `1` (`0` si `embed=1`) | panel de conversación en recepción |
 | `labels` | `1` | rótulos de los despachos |
 

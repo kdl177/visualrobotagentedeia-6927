@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
@@ -21,13 +21,19 @@
 } }
 </script>
 <style>
+/* Identidad SIMBAI, tomada de Proyectos/simbai-web-v2 (la referencia de calidad):
+   negro cálido, ámbar dorado de marca, crema para el texto y azul frío de contraste. */
 :root{
-  --night:#141A2E; --navy:#1E2A4A; --navy2:#2C3A61; --cream:#F6EBDA;
-  --coral:#FF6B4A; --mint:#35E0AE; --sky:#6EC6FF; --amber:#FFC15E; --plum:#7A5CFF;
-  --marca:#35E0AE;
-  --tx:#F6EBDA; --mut:rgba(246,235,218,.55); --line:rgba(246,235,218,.14); --card:rgba(20,26,46,.72);
-  --display:"Baloo 2",system-ui,sans-serif; --body:"Poppins",system-ui,sans-serif;
-  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;
+  --night:#0a0804; --elev:#110e08; --elev2:#1a150d;
+  --cream:#f5ede0; --cream2:#b09878; --cream3:#86795d;
+  --accent:#d4873a; --accent2:#c4721c; --frio:#5b8cff;
+  --grad:linear-gradient(115deg,#e8973f,#c4721c);
+  --marca:#d4873a;
+  --tx:#f5ede0; --mut:#b09878; --line:rgba(212,155,80,.22); --card:rgba(17,14,8,.86);
+  --display:"Urbanist",system-ui,sans-serif; --body:"Inter",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  /* escala de espaciado base 4px, la misma de la web */
+  --s-1:.25rem; --s-2:.5rem; --s-3:.75rem; --s-4:1rem; --s-5:1.5rem; --s-6:2rem;
   --safe-t:env(safe-area-inset-top,0px); --safe-b:env(safe-area-inset-bottom,0px);
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -35,18 +41,18 @@ html,body{height:100%;background:var(--night);color:var(--tx);font-family:var(--
 #escena{position:fixed;inset:0}
 #escena canvas{display:block;touch-action:none}
 #etiquetas{position:fixed;inset:0;pointer-events:none;z-index:1}
-.vignette{position:fixed;inset:0;pointer-events:none;z-index:2;background:radial-gradient(120% 90% at 50% 45%,transparent 45%,rgba(10,14,26,.72) 100%)}
+.vignette{position:fixed;inset:0;pointer-events:none;z-index:2;background:radial-gradient(120% 90% at 50% 45%,transparent 45%,rgba(6,4,2,.8) 100%)}
 .card{background:var(--card);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--line)}
 
 /* rótulo sobre cada despacho: solo el nombre, el estado va en el color del robot */
 .placa{pointer-events:auto;cursor:pointer;white-space:nowrap;font-family:var(--display);font-weight:700;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--cream);padding:6px 12px;border-radius:999px;transition:border-color .16s}
-.placa:hover,.placa.on{border-color:rgba(246,235,218,.45)}
+.placa:hover,.placa.on{border-color:rgba(212,155,80,.5)}
 .placa b{font-weight:700}
 .placa span{color:var(--mut);font-weight:600}
-.placa i{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--sky);margin-left:8px;vertical-align:1px;box-shadow:0 0 10px currentColor}
+.placa i{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--frio);margin-left:8px;vertical-align:1px;box-shadow:0 0 10px currentColor}
 .placa.activa i{background:var(--marca);box-shadow:0 0 10px var(--marca)}
-.placa.parada i{background:var(--plum);box-shadow:0 0 10px var(--plum)}
-.yo{pointer-events:none;font-family:var(--display);font-weight:800;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--night);background:var(--coral);padding:4px 10px;border-radius:999px;box-shadow:0 8px 20px -8px var(--coral)}
+.placa.parada i{background:var(--cream3);box-shadow:0 0 10px var(--cream3)}
+.yo{pointer-events:none;font-family:var(--display);font-weight:800;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#fff;background:var(--frio);padding:4px 10px;border-radius:999px;box-shadow:0 8px 20px -8px var(--frio)}
 .bocadillo{pointer-events:none;max-width:230px;padding:9px 12px;border-radius:14px;border-bottom-left-radius:4px;background:var(--cream);color:var(--night);font:400 12.5px/1.4 var(--body);white-space:normal;box-shadow:0 12px 30px -12px rgba(0,0,0,.6)}
 
 header{position:fixed;top:calc(var(--safe-t) + 18px);left:24px;right:24px;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:16px;pointer-events:none}
@@ -69,8 +75,8 @@ footer{position:fixed;left:24px;right:24px;bottom:calc(var(--safe-b) + 18px);z-i
 .hint{display:flex;align-items:center;gap:12px;font-size:11.5px;color:var(--mut);letter-spacing:.02em;pointer-events:auto}
 .hint span{transition:opacity .6s}
 .hint.off span{opacity:0}
-.hint button{background:none;border:1px solid rgba(246,235,218,.22);color:rgba(246,235,218,.75);border-radius:999px;padding:6px 13px;font:500 11.5px var(--body);cursor:pointer;white-space:nowrap;flex:none}
-.hint button:hover{color:var(--night);background:var(--cream)}
+.hint button{background:none;border:1px solid rgba(212,155,80,.28);color:var(--cream2);border-radius:999px;padding:6px 13px;font:500 11.5px var(--body);cursor:pointer;white-space:nowrap;flex:none}
+.hint button:hover{color:#1a1206;background:var(--grad);border-color:transparent}
 
 aside{
   position:fixed; top:calc(var(--safe-t) + 84px); right:24px; width:min(330px,calc(100vw - 48px)); z-index:6;
@@ -81,9 +87,9 @@ aside{
 aside.on{transform:none;opacity:1;pointer-events:auto}
 aside .top{display:flex;align-items:center;gap:10px}
 aside .nm{font-family:var(--display);font-weight:800;font-size:19px;letter-spacing:.02em;line-height:1}
-aside .mod{font:500 10px var(--body);letter-spacing:.06em;text-transform:uppercase;color:var(--mut);background:rgba(246,235,218,.08);padding:3px 8px;border-radius:6px}
+aside .mod{font:500 10px var(--body);letter-spacing:.06em;text-transform:uppercase;color:var(--mut);background:rgba(212,155,80,.10);padding:3px 8px;border-radius:6px}
 aside .cerrar{margin-left:auto;background:none;border:0;color:var(--mut);cursor:pointer;width:28px;height:28px;display:grid;place-items:center;border-radius:50%}
-aside .cerrar:hover{background:rgba(246,235,218,.1);color:var(--cream)}
+aside .cerrar:hover{background:rgba(212,155,80,.12);color:var(--cream)}
 aside .cerrar svg{width:14px;height:14px}
 /* una fila por agente del despacho */
 .puesto{display:flex;gap:10px;padding:12px 0;border-bottom:1px solid var(--line)}
@@ -100,24 +106,24 @@ aside .pie{font:11px/1.7 var(--mono);color:var(--mut);margin-top:12px;padding-to
 .chat .hilo{display:flex;flex-direction:column;gap:8px;max-height:200px;overflow-y:auto;padding-right:2px}
 .chat .hilo:empty{display:none}
 .chat .m{max-width:88%;padding:9px 12px;border-radius:14px;font-size:12.5px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
-.chat .m.mio{align-self:flex-end;background:var(--coral);color:var(--night);border-bottom-right-radius:5px}
-.chat .m.el{align-self:flex-start;background:rgba(246,235,218,.1);border-bottom-left-radius:5px}
+.chat .m.mio{align-self:flex-end;background:var(--accent);color:var(--night);border-bottom-right-radius:5px}
+.chat .m.el{align-self:flex-start;background:rgba(212,155,80,.12);border-bottom-left-radius:5px}
 .chat .m.err{align-self:stretch;background:rgba(255,107,74,.16);border:1px solid rgba(255,107,74,.4);font-size:12px}
 .chat .meta{align-self:flex-start;font:10.5px var(--mono);color:var(--mut);margin-top:-4px}
 .chat .dots::after{content:'…';display:inline-block;width:1.2em;text-align:left;animation:dots 1.2s steps(4,end) infinite}
 @keyframes dots{0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}}
 .chat .motores{display:flex;gap:6px;margin-top:10px}
-.chat .motores button{flex:1;background:none;border:1px solid rgba(246,235,218,.18);color:var(--mut);border-radius:999px;padding:6px 10px;font:500 11px var(--body);cursor:pointer;white-space:nowrap}
-.chat .motores button.on{background:var(--cream);color:var(--night);border-color:var(--cream)}
+.chat .motores button{flex:1;background:none;border:1px solid rgba(212,155,80,.22);color:var(--mut);border-radius:999px;padding:6px 10px;font:500 11px var(--body);cursor:pointer;white-space:nowrap}
+.chat .motores button.on{background:var(--grad);color:#1a1206;border-color:transparent;font-weight:600}
 .chat form{display:flex;gap:8px;margin-top:8px;align-items:flex-end}
-.chat textarea{flex:1;resize:none;background:rgba(246,235,218,.08);border:1px solid var(--line);border-radius:14px;color:var(--cream);font:400 13px/1.4 var(--body);padding:9px 12px;outline:none;min-height:38px;max-height:96px}
-.chat textarea:focus{border-color:rgba(246,235,218,.4)}
+.chat textarea{flex:1;resize:none;background:rgba(212,155,80,.10);border:1px solid var(--line);border-radius:14px;color:var(--cream);font:400 13px/1.4 var(--body);padding:9px 12px;outline:none;min-height:38px;max-height:96px}
+.chat textarea:focus{border-color:rgba(212,155,80,.45)}
 .chat textarea::placeholder{color:var(--mut)}
-.chat form button{width:38px;height:38px;border-radius:50%;border:0;background:var(--coral);color:var(--night);cursor:pointer;flex:none;display:grid;place-items:center}
+.chat form button{width:38px;height:38px;border-radius:50%;border:0;background:var(--grad);color:var(--night);cursor:pointer;flex:none;display:grid;place-items:center}
 .chat form button svg{width:16px;height:16px}
 .chat form button:disabled,.chat textarea:disabled{opacity:.5;cursor:default}
 .chat .nota{font-size:10.5px;color:var(--mut);margin-top:8px;line-height:1.5}
-.chat .nota code{display:block;margin:6px 0;padding:7px 9px;border-radius:8px;background:rgba(246,235,218,.08);color:var(--cream);font:10.5px/1.5 var(--mono);user-select:all;word-break:break-all}
+.chat .nota code{display:block;margin:6px 0;padding:7px 9px;border-radius:8px;background:rgba(212,155,80,.10);color:var(--cream);font:10.5px/1.5 var(--mono);user-select:all;word-break:break-all}
 
 .msg{position:fixed;inset:0;z-index:4;display:grid;place-items:center;text-align:center;color:var(--mut);font-size:13.5px;padding:20px;background:var(--night)}
 .msg b{display:block;font-family:var(--display);color:var(--cream);font-size:18px;margin-bottom:6px}
@@ -188,7 +194,7 @@ const CFG = {
   embed: flag('embed', false),
   name: Q.get('name') || 'OFICINA SIMBAI',
   tagline: Q.get('tagline') || 'trece agentes, seis despachos',
-  accent: /^#[0-9a-f]{3,8}$/i.test(Q.get('accent') || '') ? Q.get('accent') : '#35E0AE',
+  accent: /^#[0-9a-f]{3,8}$/i.test(Q.get('accent') || '') ? Q.get('accent') : '#d4873a',
   labels: flag('labels', true),
   // el panel de estados vive aquí por defecto; ?estado= lo cambia y ?estado= vacío lo apaga
   estado: Q.has('estado') ? Q.get('estado') : 'http://localhost:8080/estado.json',
@@ -200,17 +206,18 @@ $('#marca').textContent = CFG.name;
 $('#lema').textContent = CFG.tagline;
 
 /* ── paleta y plantilla de la oficina ───────────────── */
+// Paleta SIMBAI (Proyectos/simbai-web-v2): negro cálido, ámbar dorado y crema.
 const PAL = {
-  night:0x141A2E, navy:0x1E2A4A, navy2:0x2C3A61, cream:0xF6EBDA,
-  coral:0xFF6B4A, mint:0x35E0AE, sky:0x6EC6FF, amber:0xFFC15E, plum:0x7A5CFF,
-  wood:0xC98A54, wood2:0x9C6437, leaf:0x3FAE72, leaf2:0x58C98A, white:0xFFFFFF,
+  night:0x0a0804, navy:0x1a150d, navy2:0x241d12, cream:0xf5ede0,
+  coral:0xd4873a, mint:0xd4873a, sky:0x5b8cff, amber:0xe8973f, plum:0x86795d,
+  wood:0x4a3a22, wood2:0x3a2c1a, leaf:0x7d8f4a, leaf2:0x97a95d, white:0xf0e9dd,
 };
 const MARCA = new THREE.Color(CFG.accent).getHex();
-// trabajando = color de marca; libre = cielo apagado; parado = violeta
+// trabajando = ámbar de marca; libre = azul frío; parado = crema apagada
 const SIT = {
   trabajando: { hex:MARCA, css:CFG.accent, factor:1, etiqueta:'Trabajando' },
-  libre:      { hex:PAL.sky, css:'#6EC6FF', factor:.35, etiqueta:'Libre' },
-  parado:     { hex:PAL.plum, css:'#7A5CFF', factor:.5, etiqueta:'Parado' },
+  libre:      { hex:PAL.sky, css:'#5b8cff', factor:.4, etiqueta:'Libre' },
+  parado:     { hex:PAL.plum, css:'#86795d', factor:.45, etiqueta:'Parado' },
 };
 const situacion = s => SIT[s] ? s : 'libre';
 
@@ -455,7 +462,7 @@ function reposa(r, t){
 function grafico(){
   const g = new THREE.Group();
   for (let k = 0; k < 6; k++){
-    const b = new THREE.Mesh(new THREE.PlaneGeometry(0.075, 0.5), new THREE.MeshBasicMaterial({ color:k % 2 ? PAL.mint : PAL.coral, toneMapped:false, side:THREE.DoubleSide }));
+    const b = new THREE.Mesh(new THREE.PlaneGeometry(0.075, 0.5), new THREE.MeshBasicMaterial({ color:k % 2 ? PAL.amber : PAL.sky, toneMapped:false, side:THREE.DoubleSide }));
     b.position.x = k * 0.12; b.userData.k = k;
     g.add(b);
   }
@@ -693,9 +700,10 @@ function construye(){
   }
   scene.fog = new THREE.Fog(PAL.night, 55, 150); // en móvil la cámara se aleja: con 80 la planta se apagaba
 
-  scene.add(new THREE.HemisphereLight(PAL.sky, PAL.wood, 0.7));
-  scene.add(new THREE.AmbientLight(0xffffff, 0.5));
-  const sol = new THREE.DirectionalLight(PAL.amber, 2.1);
+  // luz de tarde: el ámbar de marca domina y el azul frío solo perfila
+  scene.add(new THREE.HemisphereLight(0x8aa4e0, PAL.wood, 0.55));
+  scene.add(new THREE.AmbientLight(0xffe6c4, 0.42));
+  const sol = new THREE.DirectionalLight(0xffd9a0, 1.9);
   sol.position.set(-7, 14, 9); sol.castShadow = true;
   sol.shadow.mapSize.set(2048, 2048);
   Object.assign(sol.shadow.camera, { left:-largo / 2 - 10, right:largo / 2 + 6, top:prof / 2, bottom:-prof / 2, near:1, far:70 });
@@ -707,7 +715,8 @@ function construye(){
 
 /* ── tu personaje ───────────────────────────────────── */
 const yo = new THREE.Group();
-const yoRobot = robot(PAL.coral);
+// tú vas en azul frío: el ámbar es de los agentes y así no te confundes con uno
+const yoRobot = robot(PAL.sky);
 yo.add(yoRobot);
 {
   const div = document.createElement('div'); div.className = 'yo'; div.textContent = 'Tú';
