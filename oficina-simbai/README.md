@@ -1,21 +1,24 @@
-# Oficina SIMBAI: once agentes de IA en una planta 3D
+# Oficina SIMBAI: trece agentes de IA en una planta 3D
 
-Una planta cartoon con cinco despachos de dos puestos y una recepción. Cada agente es un robot flotante cuyo color dice si trabaja, está libre o se ha parado. Tú entras con tu robot coral, te acercas a quien quieras y hablas con la asistenta de recepción.
+Una planta cartoon con seis despachos de dos puestos y una recepción. Cada agente es un robot flotante cuyo color dice si trabaja, está libre o se ha parado. Tú entras con tu robot coral, te acercas a quien quieras y hablas con la asistenta de recepción o con los agentes reales.
 
 ![Planta de la oficina](docs/captura.png)
 
-## Los once puestos
+## Los puestos
 
-| Despacho | Puestos |
-|---|---|
-| Recepción | asistenta |
-| Mercados | explorador, analista |
-| Desarrollo | constructor, revisor |
-| Automatizaciones | diseñador de flujos, integrador |
-| Visuales | director de arte, maquetador |
-| Auditoría | auditor técnico, auditor de negocio |
+| Despacho | Puestos | De dónde salen sus datos |
+|---|---|---|
+| Recepción | asistenta | endpoint de estados |
+| Mercados | explorador, analista | endpoint de estados |
+| Desarrollo | constructor, revisor | endpoint de estados |
+| Automatizaciones | diseñador de flujos, integrador | endpoint de estados |
+| Visuales | director de arte, maquetador | endpoint de estados |
+| Auditoría | auditor técnico, auditor de negocio | endpoint de estados |
+| SIMBAI | captacion-crm, recepcion-abogados | `/api/agentes`, los agentes que existen de verdad |
 
 Los dos puestos de cada despacho van en L sobre la misma esquina, con una pizarra compartida: el trabajo pasa de uno a otro y la escena lo cuenta.
+
+El despacho SIMBAI es distinto: sus dos puestos son los agentes reales de `agents/`. Su estado sale de cuándo conversaron por última vez, su tarjeta muestra conversaciones, turnos y coste acumulado, y desde ella se puede hablar con cualquiera de los dos. El endpoint de estados no los toca.
 
 ## Estados
 
@@ -47,11 +50,14 @@ Abre `http://localhost:8794`. Variables opcionales: `PUERTO` (8794) y `HOST` (`1
 
 ## De dónde vienen los estados
 
-Con `?estado=` la oficina sondea ese endpoint cada 5 segundos:
+La oficina sondea cada 5 segundos `http://localhost:8080/estado.json`. Para usar otro, o para apagar el sondeo dejándolo vacío:
 
 ```
-http://localhost:8794/?estado=http://localhost:8080/estado.json
+http://localhost:8794/?estado=http://otra-maquina:9000/estado.json
+http://localhost:8794/?estado=
 ```
+
+El endpoint necesita la cabecera `Access-Control-Allow-Origin`, porque lo pide el navegador desde otro puerto.
 
 El JSON tiene esta forma. Las claves de `despachos` son los nombres de puesto de la tabla de arriba, y `despacho` es uno de `mercados`, `desarrollo`, `automatizaciones`, `visuales`, `auditoria`, `recepcion`.
 
@@ -81,10 +87,10 @@ Un agente que no aparezca se muestra libre. Si el endpoint no responde, la plant
 
 | Parámetro | Por defecto | Qué hace |
 |---|---|---|
-| `estado` | vacío | URL del JSON de estados |
+| `estado` | `http://localhost:8080/estado.json` | URL del JSON de estados; vacío apaga el sondeo |
 | `embed` | `0` | HUD compacto para iframe |
 | `name` | `OFICINA SIMBAI` | nombre en la cabecera |
-| `tagline` | `once agentes, cinco despachos` | subtítulo |
+| `tagline` | `trece agentes, seis despachos` | subtítulo |
 | `accent` | `%2335E0AE` | color de marca, también el de "trabajando" |
 | `chat` | `1` (`0` si `embed=1`) | panel de conversación en recepción |
 | `labels` | `1` | rótulos de los despachos |
@@ -92,7 +98,7 @@ Un agente que no aparezca se muestra libre. Si el endpoint no responde, la plant
 ## Controles
 
 - Clic en un despacho: la cámara se acerca y sale una tarjeta con sus dos agentes, su estado y qué hacen.
-- Clic en recepción: además, el chat con la asistenta.
+- Clic en recepción o en SIMBAI: además, el chat. En SIMBAI se elige con cuál de los dos agentes hablar.
 - Clic fuera o tecla Escape: vuelta a la vista general.
 - Arrastrar para orbitar, rueda para zoom, WASD o flechas para moverte.
 
@@ -106,7 +112,7 @@ En el navegador, `?test` ejecuta los asserts de estados y colisión en la consol
 
 ## Rendimiento
 
-Once robots comparten geometría, solo se animan los que trabajan y no hay luces puntuales por personaje. Si aun así la escena baja de 30 fotogramas por segundo, se apagan sombras y se baja la resolución sola.
+Trece robots comparten geometría, solo se animan los que trabajan y no hay luces puntuales por personaje. Si aun así la escena baja de 30 fotogramas por segundo, se apagan sombras y se baja la resolución sola.
 
 ## Origen
 

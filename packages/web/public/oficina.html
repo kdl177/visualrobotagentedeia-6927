@@ -155,7 +155,7 @@ body.embed .brand__name{font-size:16px}
   <div class="brand">
     <a class="card" href="/" aria-label="Volver a SIMBAI OS"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a>
     <span class="brand__mark"></span>
-    <div><div class="brand__name" id="marca">OFICINA SIMBAI</div><div class="brand__sub" id="lema">once agentes, cinco despachos</div></div>
+    <div><div class="brand__name" id="marca">OFICINA SIMBAI</div><div class="brand__sub" id="lema">trece agentes, seis despachos</div></div>
   </div>
   <div class="status card" id="estado"><i></i><span>cargando…</span></div>
 </header>
@@ -187,10 +187,11 @@ const flag = (n, pd) => Q.has(n) ? Q.get(n) !== '0' : pd;
 const CFG = {
   embed: flag('embed', false),
   name: Q.get('name') || 'OFICINA SIMBAI',
-  tagline: Q.get('tagline') || 'once agentes, cinco despachos',
+  tagline: Q.get('tagline') || 'trece agentes, seis despachos',
   accent: /^#[0-9a-f]{3,8}$/i.test(Q.get('accent') || '') ? Q.get('accent') : '#35E0AE',
   labels: flag('labels', true),
-  estado: Q.get('estado') || '',
+  // el panel de estados vive aquí por defecto; ?estado= lo cambia y ?estado= vacío lo apaga
+  estado: Q.has('estado') ? Q.get('estado') : 'http://localhost:8080/estado.json',
 };
 CFG.chat = flag('chat', !CFG.embed);
 if (CFG.embed) document.body.classList.add('embed');
@@ -214,12 +215,16 @@ const SIT = {
 const situacion = s => SIT[s] ? s : 'libre';
 
 const RECEPCION = { id:'recepcion', nombre:'Recepción', puestos:['asistenta'] };
+// despacho de los agentes que existen de verdad en agents/: su estado, coste y chat salen
+// de /api/agentes, no del endpoint de estados
+const SIMBAI = { id:'simbai', nombre:'SIMBAI', reales:true, puestos:['captacion-crm', 'recepcion-abogados'] };
 const DESPACHOS = [
   { id:'mercados', nombre:'Mercados', puestos:['explorador', 'analista'] },
   { id:'desarrollo', nombre:'Desarrollo', puestos:['constructor', 'revisor'] },
   { id:'automatizaciones', nombre:'Automatizaciones', puestos:['disenador-flujos', 'integrador'] },
   { id:'visuales', nombre:'Visuales', puestos:['director-arte', 'maquetador'] },
   { id:'auditoria', nombre:'Auditoría', puestos:['auditor-tecnico', 'auditor-negocio'] },
+  SIMBAI,
 ];
 const ROL = {
   asistenta:'Asistenta', explorador:'Explorador', analista:'Analista',
@@ -227,7 +232,9 @@ const ROL = {
   'disenador-flujos':'Diseñador de flujos', integrador:'Integrador',
   'director-arte':'Director de arte', maquetador:'Maquetador',
   'auditor-tecnico':'Auditor técnico', 'auditor-negocio':'Auditor de negocio',
+  'captacion-crm':'Captación CRM', 'recepcion-abogados':'Recepción Abogados',
 };
+const REALES = new Set(SIMBAI.puestos);
 const EJEMPLO = {
   despachos: {
     explorador: { despacho:'mercados', situacion:'trabajando', detalle:'busca oportunidades en hoteles de Málaga', cuando:new Date().toISOString() },
@@ -243,11 +250,13 @@ const EJEMPLO = {
 const PASILLO = 6, FONDO = 8.4, ALTO = 2.2, GROSOR = 0.15, PUERTA = 2.2, ANCHO = 9.4;
 const RADIO = 0.35, VEL = 3.6, ROBOT = 0.62;
 
-// normaliza el JSON del endpoint: todo puesto conocido queda con una situación
+// normaliza el JSON del endpoint: todo puesto conocido queda con una situación.
+// Los puestos de SIMBAI se saltan: sus datos vienen de /api/agentes, no del endpoint.
 function normaliza(datos){
   const dch = datos?.despachos && typeof datos.despachos === 'object' ? datos.despachos : {};
   const out = {};
-  for (const { id, puestos } of [RECEPCION, ...DESPACHOS]){
+  for (const { id, puestos, reales } of [RECEPCION, ...DESPACHOS]){
+    if (reales) continue;
     for (const p of puestos){
       const d = dch[p] || {};
       out[p] = {
@@ -259,6 +268,18 @@ function normaliza(datos){
     }
   }
   return out;
+}
+
+// un agente real trabaja si ha conversado en la última hora, está libre si lo hizo
+// esta semana, y se considera parado si lleva más tiempo o su carpeta no existe
+function deAgente(a){
+  if (!a || !a.existe) return { despacho:'simbai', situacion:'parado', detalle:'la carpeta del agente no existe', cuando:null, agente:a || null };
+  const h = a.ultima ? (Date.now() - new Date(a.ultima.replace(' ', 'T') + ':00Z')) / 36e5 : Infinity;
+  const situacion = h < 1 ? 'trabajando' : h < 24 * 7 ? 'libre' : 'parado';
+  const detalle = a.conversaciones
+    ? `${a.conversaciones} ${a.conversaciones === 1 ? 'conversación' : 'conversaciones'} · ${a.turnos} turnos · ${a.coste} USD`
+    : 'sin conversaciones registradas';
+  return { despacho:'simbai', situacion, detalle, cuando:a.ultima ? a.ultima.replace(' ', 'T') + ':00Z' : null, agente:a };
 }
 function hace(iso){
   if (!iso) return '';
@@ -275,7 +296,13 @@ function libre(x, z, lista = obstaculos){
 
 if (Q.has('test')){
   const n = normaliza(EJEMPLO);
-  console.assert(Object.keys(n).length === 11, 'once puestos');
+  console.assert(Object.keys(n).length === 11, 'once puestos del endpoint');
+  console.assert(!n['captacion-crm'], 'los agentes reales no salen del endpoint');
+  const hace = h => new Date(Date.now() - h * 36e5).toISOString().slice(0, 16).replace('T', ' ');
+  console.assert(deAgente({ existe:true, ultima:hace(0.2), conversaciones:3, turnos:9, coste:0.1 }).situacion === 'trabajando', 'real trabajando');
+  console.assert(deAgente({ existe:true, ultima:hace(30), conversaciones:1, turnos:2, coste:0.1 }).situacion === 'libre', 'real libre');
+  console.assert(deAgente({ existe:true, ultima:hace(24 * 10), conversaciones:1, turnos:2, coste:0.1 }).situacion === 'parado', 'real parado');
+  console.assert(deAgente(null).situacion === 'parado', 'sin agente = parado');
   console.assert(n.explorador.situacion === 'trabajando' && n.revisor.situacion === 'parado', 'situaciones del ejemplo');
   console.assert(n.integrador.situacion === 'libre' && n.integrador.detalle === '', 'ausente = libre');
   console.assert(normaliza(null).analista.situacion === 'libre', 'sin datos = libre');
@@ -664,7 +691,7 @@ function construye(){
     tabla.rotation.x = -Math.PI / 2; tabla.position.set(0, 0.002, zz);
     scene.add(tabla);
   }
-  scene.fog = new THREE.Fog(PAL.night, 30, 80);
+  scene.fog = new THREE.Fog(PAL.night, 55, 150); // en móvil la cámara se aleja: con 80 la planta se apagaba
 
   scene.add(new THREE.HemisphereLight(PAL.sky, PAL.wood, 0.7));
   scene.add(new THREE.AmbientLight(0xffffff, 0.5));
@@ -732,10 +759,14 @@ function pintaSala(id){
         </div>
       </div>`;
     }).join('')}
-    ${id === 'recepcion' && CFG.chat ? bloqueChat() : `<div class="pie">Clic fuera para volver a la vista general.</div>`}`;
+    ${conChat(id) ? bloqueChat(id) : `<div class="pie">Clic fuera para volver a la vista general.</div>`}`;
   $('#panel .cerrar').onclick = () => abre(null);
-  if (id === 'recepcion' && CFG.chat) enlazaChat();
+  if (conChat(id)) enlazaChat(id);
 }
+// se puede hablar en recepción y en el despacho de los agentes reales
+const conChat = id => CFG.chat && (id === 'recepcion' || id === 'simbai');
+// con quién se habla en cada sala; en SIMBAI se elige entre sus dos agentes
+const interlocutor = id => id === 'simbai' ? (charla.agente ?? SIMBAI.puestos[0]) : AGENTE_RECEPCION;
 
 function abre(id){
   abierto = id;
@@ -757,13 +788,21 @@ const TK = (() => {
 })();
 const AGENTE_RECEPCION = Q.get('agente') || 'recepcion-abogados';
 let localListo = false;
-const charla = { sesion:'oficina-' + Date.now().toString(36), turnos:[], motor:'claude', pensando:false };
+// agentes que existen de verdad en agents/, por nombre
+const agentesReales = new Map();
+const cargaAgentes = () => fetch('/api/agentes').then(r => r.ok ? r.json() : sinCuerpo(r)).catch(() => null)
+  .then(d => { if (d?.agentes) for (const a of d.agentes) agentesReales.set(a.nombre, a); });
+const charla = { sesion:'oficina-' + Date.now().toString(36), turnos:[], motor:'claude', pensando:false, agente:null, sala:null };
 const sinCuerpo = r => r.text().then(() => null);
 const cargaModelos = () => fetch('/api/modelos').then(r => r.ok ? r.json() : sinCuerpo(r)).catch(() => null)
   .then(m => { localListo = Array.isArray(m) && m.some(x => x.tipo === 'ollama' && x.listo); if (localListo && !charla.turnos.length) charla.motor = 'local'; });
 
-function bloqueChat(){
+function bloqueChat(id){
+  const con = interlocutor(id);
   return `<div class="chat">
+    ${id === 'simbai' ? `<div class="motores" id="conQuien">
+      ${SIMBAI.puestos.map(p => `<button type="button" data-agente="${esc(p)}">${esc(ROL[p] || p)}</button>`).join('')}
+    </div>` : ''}
     <div class="hilo" id="hilo"></div>
     ${TK ? `
     <div class="motores">
@@ -771,15 +810,24 @@ function bloqueChat(){
       <button type="button" data-motor="claude">Claude · ~0,05 USD</button>
     </div>
     <form id="envio">
-      <textarea id="texto" rows="1" placeholder="Pide algo a la asistenta…"></textarea>
+      <textarea id="texto" rows="1" placeholder="Habla con ${esc(ROL[con] || 'la asistenta')}…"></textarea>
       <button type="submit" aria-label="Enviar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
     </form>
     <div class="nota" id="nota"></div>`
     : `<div class="nota">Este navegador no tiene el token del chat. En el PC, abre PowerShell y ejecuta:<br><code>$tk=(Get-Content Apps\\simbai-os\\.token -Raw).Trim(); Start-Process "http://localhost:8790/oficina.html?tk=$tk"</code><br>Se guarda una vez y ya no hace falta más.</div>`}
   </div>`;
 }
-function enlazaChat(){
-  $('#panel .motores')?.querySelectorAll('button').forEach(b => b.onclick = () => { charla.motor = b.dataset.motor; pintaHilo(); });
+function enlazaChat(id){
+  charla.sala = id;
+  if (id === 'simbai' && !charla.agente) charla.agente = SIMBAI.puestos[0]; // sin esto ningún botón sale marcado
+  // cambiar de agente empieza conversación nueva: cada agente tiene su propia sesión
+  $('#conQuien')?.querySelectorAll('button').forEach(b => b.onclick = () => {
+    if (charla.agente === b.dataset.agente || charla.pensando) return;
+    charla.agente = b.dataset.agente;
+    charla.turnos = []; charla.sesion = 'oficina-' + Date.now().toString(36);
+    pintaSala(id);
+  });
+  $('#panel .motores:not(#conQuien)')?.querySelectorAll('button').forEach(b => b.onclick = () => { charla.motor = b.dataset.motor; pintaHilo(); });
   const form = $('#envio');
   if (form){
     form.onsubmit = e => { e.preventDefault(); envia(); };
@@ -795,10 +843,14 @@ function pintaHilo(){
     : `<div class="m ${t.tipo}">${esc(t.texto)}</div>` + (t.tipo === 'el' ? `<div class="meta">${t.motor === 'local' ? 'local · gratis' : `${t.coste ?? '?'} USD`}${t.ms ? ` · ${Math.round(t.ms / 1000)} s` : ''}</div>` : '')
   ).join('') + (charla.pensando ? '<div class="m el"><span class="dots">Pensando</span></div>' : '');
   hilo.scrollTop = hilo.scrollHeight;
+  const con = interlocutor(charla.sala);
+  $('#conQuien')?.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.agente === con));
   if (!localListo && charla.motor === 'local') charla.motor = 'claude';
   const bl = $('#panel .motores button[data-motor=local]');
   if (bl){ bl.disabled = !localListo; bl.textContent = localListo ? 'Local · gratis' : 'Local · Ollama apagado'; }
-  $('#panel .motores')?.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.motor === charla.motor));
+  // :not(#conQuien) es necesario: el selector de agentes comparte la clase .motores y si no,
+  // esta línea le borraba la marca al agente elegido
+  $('#panel .motores:not(#conQuien)')?.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.motor === charla.motor));
   const ta = $('#texto'), bt = $('#envio button');
   if (ta){ ta.disabled = charla.pensando; bt.disabled = charla.pensando; }
   const nota = $('#nota');
@@ -812,13 +864,14 @@ async function envia(){
   ta.value = '';
   charla.turnos.push({ tipo:'mio', texto }); charla.pensando = true;
   pintaHilo();
-  const g = puestos.get('asistenta');
+  const con = interlocutor(charla.sala);
+  const g = puestos.get(charla.sala === 'simbai' ? con : 'asistenta');
   if (g) animo(g, 'pensando');
   try {
     const r = await fetch('/api/hablar', {
       method:'POST',
       headers:{ 'Content-Type':'application/json', 'X-Token':TK },
-      body:JSON.stringify({ agente:AGENTE_RECEPCION, mensaje:texto, sesion:charla.sesion, motor:charla.motor }),
+      body:JSON.stringify({ agente:con, mensaje:texto, sesion:charla.sesion, motor:charla.motor }),
     });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) charla.turnos.push({ tipo:'err', texto:
@@ -842,7 +895,7 @@ function animo(g, estado, hasta = 0){
   else if (estado === 'hablando') colorea(u.robot, PAL.sky, 1);
   else {
     u.bocadillo.visible = false;
-    if (u.estado) aplica('asistenta', u.estado);
+    for (const [id, x] of puestos) if (x === g && x.userData.estado) aplica(id, x.userData.estado);
   }
 }
 function di(g, texto){
@@ -865,7 +918,7 @@ let vuelo = null; // {pos, tgt} destino de cámara mientras dura la interpolaci�
 // La planta entera cabe en pantalla. La fórmula teórica falla porque los rótulos miden en
 // píxeles y no encogen al alejar, así que se proyectan las ocho esquinas de la caja y se
 // aleja la cámara hasta que todas caen dentro del margen pedido.
-const MARGEN = 0.95; // fracción de la pantalla que puede ocupar la planta
+const MARGEN = 0.97; // fracción de la pantalla que puede ocupar la planta
 function encuadraGeneral(){
   // la caja se arma con las zonas de las salas, no con setFromObject: los haces de luz del
   // suelo y las sombras sobresalen del edificio y descentraban el encuadre
@@ -876,9 +929,13 @@ function encuadraGeneral(){
   }
   if (caja.isEmpty()){ vistaGeneral.tgt.set(0, 1, 0); vistaGeneral.pos.set(6, 22, 26); return; }
   const c = caja.getCenter(new THREE.Vector3()), t = caja.getSize(new THREE.Vector3());
-  // en vertical la cámara se alza un poco más: la pantalla estrecha necesita menos diagonal
+  // Con una planta casi cuadrada y una pantalla estrecha, el límite es siempre el ancho: al
+  // encuadrarla entera sobraban tres cuartos de alto y la oficina quedaba diminuta. En vertical
+  // se ensancha el campo de visión, que acerca la cámara sin recortar nada.
   const vertical = camera.aspect < 1;
-  const dir = vertical ? new THREE.Vector3(0.12, 0.86, 0.5).normalize() : new THREE.Vector3(0.18, 0.72, 0.67).normalize();
+  camera.fov = vertical ? 78 : 38;
+  camera.updateProjectionMatrix();
+  const dir = vertical ? new THREE.Vector3(0.3, 0.68, 0.67).normalize() : new THREE.Vector3(0.18, 0.72, 0.67).normalize();
   const tgt = new THREE.Vector3(c.x, 1, c.z);
   // solo las cuatro esquinas del suelo: incluir la altura de los muros alejaba de más,
   // porque en picado su parte alta se proyecta muy por encima de la planta
@@ -898,9 +955,7 @@ function encuadraGeneral(){
       const p = e.clone().project(prueba);
       mx = Math.max(mx, Math.abs(p.x)); my = Math.max(my, Math.abs(p.y));
     }
-    // En vertical se encuadra por el alto y se deja que el ancho se recorte: la planta mide
-    // 29 m y forzarla en 375 px la dejaba como un punto. El usuario gira o acerca para el resto.
-    const max = vertical ? my : Math.max(mx, my);
+    const max = Math.max(mx, my);
     if (Math.abs(max - MARGEN) < 0.02) break;
     d *= max / MARGEN;
   }
@@ -1030,11 +1085,12 @@ function bucle(){
 }
 
 /* ── datos: el JSON del brief ───────────────────────── */
-let sinConexion = false;
+let sinConexion = false, ultimoJson = null; // el último JSON válido, para repintar sin volver a pedirlo
 
 // función pública del brief: recibe el objeto y actualiza toda la escena
 function actualiza(datos){
   const est = normaliza(datos);
+  for (const p of SIMBAI.puestos) est[p] = deAgente(agentesReales.get(p));
   for (const [id, e] of Object.entries(est)){
     const g = puestos.get(id);
     if (g && !g.userData.animo) aplica(id, e);
@@ -1055,7 +1111,7 @@ function actualiza(datos){
   const clave = sinConexion ? 'libre' : total ? 'trabajando' : 'libre';
   $('#estado').style.setProperty('--dot', SIT[clave].css);
   $('#estado span').textContent = sinConexion ? 'sin conexión con los agentes'
-    : total ? `${total} ${total === 1 ? 'agente trabajando' : 'agentes trabajando'} de 11` : '11 agentes libres';
+    : total ? `${total} ${total === 1 ? 'agente trabajando' : 'agentes trabajando'} de ${Object.keys(est).length}` : `${Object.keys(est).length} agentes libres`;
 }
 if (Q.has('test')) window.__actualiza = actualiza;
 
@@ -1065,7 +1121,7 @@ async function sondea(){
     const r = await fetch(CFG.estado, { cache:'no-store' });
     if (!r.ok) throw new Error(String(r.status));
     const d = await r.json();
-    sinConexion = false;
+    sinConexion = false; ultimoJson = d;
     $('#aviso').textContent = '';
     actualiza(d);
   } catch {
@@ -1089,8 +1145,9 @@ async function principal(){
   // la oficina se pinta antes de pedir nada: ningún fallo de red puede dejarla cargando
   actualiza(CFG.estado ? null : EJEMPLO);
   cargaModelos().catch(() => {});
+  cargaAgentes().then(() => actualiza(ultimoJson)).catch(() => {});
   if (CFG.estado){ sondea(); setInterval(sondea, 5000); }
-  setInterval(() => cargaModelos().catch(() => {}), 30_000);
+  setInterval(() => { cargaModelos().catch(() => {}); cargaAgentes().then(() => actualiza(ultimoJson)).catch(() => {}); }, 30_000);
 
   if (Q.has('test')) window.__oficina = {
     yo, puestos, salas, cam:camera.position, camara:camera, target:controls.target, maxDistance:controls.maxDistance, V3:THREE.Vector3,
