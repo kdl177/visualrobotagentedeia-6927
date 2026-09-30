@@ -672,15 +672,19 @@ function sala(cfg, esRecepcion = false){
   suelo.rotation.x = -Math.PI / 2; suelo.position.y = 0.004; suelo.receiveShadow = true;
   g.add(suelo);
 
-  pared(g, W + t, t, 0, -D / 2);
+  // la trasera va entre las laterales, no por encima: con W + t se cruzaba con ellas en las esquinas
+  pared(g, W - t, t, 0, -D / 2);
+  // Solo la lateral izquierda, salvo en la última sala de la fila: entre dos salas contiguas
+  // la medianera es una sola pared compartida. Poniendo las dos, se cruzaban en el mismo sitio.
   pared(g, t, D, -W / 2, 0);
-  pared(g, t, D, W / 2, 0);
-  const hoja = (W - PUERTA) / 2;
+  if (cfg.cierraFila !== false) pared(g, t, D, W / 2, 0);
+  // las hojas de la fachada también se quedan dentro de las laterales
+  const hoja = (W - t - PUERTA) / 2;
   pared(g, hoja, t, -(PUERTA + hoja) / 2, D / 2);
   pared(g, hoja, t, (PUERTA + hoja) / 2, D / 2);
   rodapie(g, W - t, 0.06, 0, -D / 2 + t / 2 + 0.03);
   rodapie(g, 0.06, D - t, -W / 2 + t / 2 + 0.03, 0);
-  rodapie(g, 0.06, D - t, W / 2 - t / 2 - 0.03, 0);
+  if (cfg.cierraFila !== false) rodapie(g, 0.06, D - t, W / 2 - t / 2 - 0.03, 0);
 
   ventana(g, 0, -D / 2 + t / 2 + 0.01);
 
@@ -791,15 +795,19 @@ function construye(){
   for (const d of DESPACHOS) if (!usados.has(d.id)) filas[filas[0].length <= filas[1].length ? 0 : 1].push(d);
   filas.forEach((fila, lado) => {
     // cada fila se centra sobre el pasillo, así la que tiene menos salas no descuadra la planta
-    const desplazamiento = (Math.max(...filas.map(f => f.length)) - fila.length) * (ANCHO + GROSOR) / 2;
+    const desplazamiento = (Math.max(...filas.map(f => f.length)) - fila.length) * ANCHO / 2;
     fila.forEach((cfg, i) => {
+      // Una sola pared por medianera. La fila sur va rotada 180°, así que su pared local
+      // derecha cae a la izquierda en el mundo: ahí la omite la primera sala, no la última.
+      cfg.cierraFila = lado ? i === 0 : i === fila.length - 1;
       const s = sala(cfg);
-      s.position.set(desplazamiento + i * (ANCHO + GROSOR) + ANCHO / 2, 0, (lado ? 1 : -1) * (PASILLO / 2 + FONDO / 2));
+      // paso = ANCHO exacto: cada sala ocupa de -W/2 a +W/2 y las medianeras coinciden
+      s.position.set(desplazamiento + i * ANCHO + ANCHO / 2, 0, (lado ? 1 : -1) * (PASILLO / 2 + FONDO / 2));
       if (lado) s.rotation.y = Math.PI;
       edificio.add(s);
     });
   });
-  const largo = Math.max(...filas.map(f => f.length)) * (ANCHO + GROSOR);
+  const largo = Math.max(...filas.map(f => f.length)) * ANCHO;
 
   // recepción al frente del pasillo, no en un extremo: así la planta no se alarga y es lo
   // primero que se ve al entrar
@@ -1311,7 +1319,7 @@ async function principal(){
   setInterval(() => { cargaModelos().catch(() => {}); cargaAgentes().then(() => actualiza(ultimoJson)).catch(() => {}); }, 30_000);
 
   if (Q.has('test')) window.__oficina = {
-    yo, puestos, salas, edificio, cam:camera.position, camara:camera, target:controls.target, maxDistance:controls.maxDistance, V3:THREE.Vector3,
+    yo, puestos, salas, edificio, Box3:THREE.Box3, cam:camera.position, camara:camera, target:controls.target, maxDistance:controls.maxDistance, V3:THREE.Vector3,
     recepcion: rec,
     mercados: salas.get('mercados').getWorldPosition(new THREE.Vector3()),
     estado: id => puestos.get(id)?.userData.estado,
