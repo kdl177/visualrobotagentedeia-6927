@@ -52,6 +52,8 @@ html,body{height:100%;background:var(--night);color:var(--tx);font-family:var(--
 .placa i{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--frio);margin-left:8px;vertical-align:1px;box-shadow:0 0 10px currentColor}
 .placa.activa i{background:var(--marca);box-shadow:0 0 10px var(--marca)}
 .placa.parada i{background:var(--cream3);box-shadow:0 0 10px var(--cream3)}
+.placa.comun{color:var(--mut);font-weight:600}
+.placa.comun i{display:none}
 .yo{pointer-events:none;font-family:var(--display);font-weight:800;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--night);background:var(--cream);padding:4px 10px;border-radius:999px;box-shadow:0 8px 24px -8px rgba(238,238,242,.5)}
 .bocadillo{pointer-events:none;max-width:230px;padding:9px 12px;border-radius:14px;border-bottom-left-radius:4px;background:var(--cream);color:var(--night);font:400 12.5px/1.4 var(--body);white-space:normal;box-shadow:0 12px 30px -12px rgba(0,0,0,.6)}
 
@@ -247,11 +249,18 @@ const REALES = new Set(SIMBAI.puestos);
 // encargo. Primero lo que trata con fuera (captación y los agentes que atienden), en medio la
 // producción, y al fondo lo técnico y el control, que son los que necesitan menos ruido.
 // Las dos filas se leen en paralelo: lo que se pasa trabajo queda enfrentado.
+// Zonas comunes: no tienen agentes, se cruzan todos. Van en el centro de la planta.
+const COMUNES = [
+  { id:'reuniones', nombre:'Sala de reuniones', comun:true, puestos:[] },
+  { id:'office', nombre:'Office', comun:true, puestos:[] },
+];
+
 // Recepción cierra el pasillo por el sureste, así que la fila sur se lee de derecha a
-// izquierda: lo más cercano a la entrada va al final de su lista.
+// izquierda: lo más cercano a la entrada va al final de su lista. Las comunes quedan en
+// el medio de cada fila, que es por donde pasa todo el mundo.
 const ORDEN = {
-  norte: ['automatizaciones', 'visuales', 'mercados'],
-  sur:   ['auditoria', 'desarrollo', 'simbai'],
+  norte: ['automatizaciones', 'visuales', 'reuniones', 'mercados'],
+  sur:   ['auditoria', 'office', 'desarrollo', 'simbai'],
 };
 
 const EJEMPLO = {
@@ -330,8 +339,9 @@ if (Q.has('test')){
   console.assert(!libre(0, 0, caja) && libre(1.5, 0, caja), 'colision');
   const colocados = [...ORDEN.norte, ...ORDEN.sur];
   console.assert(colocados.length === new Set(colocados).size, 'ningún despacho repetido en ORDEN');
-  console.assert(DESPACHOS.every(d => colocados.includes(d.id)), 'todos los despachos tienen sitio');
-  console.assert(colocados.every(id => DESPACHOS.some(d => d.id === id)), 'ORDEN no nombra despachos inexistentes');
+  console.assert([...DESPACHOS, ...COMUNES].every(d => colocados.includes(d.id)), 'todas las salas tienen sitio');
+  console.assert(colocados.every(id => [...DESPACHOS, ...COMUNES].some(d => d.id === id)), 'ORDEN no nombra salas inexistentes');
+  console.assert(COMUNES.every(c => !c.puestos.length), 'las zonas comunes no tienen puestos');
   console.log('ok normaliza y colision');
 }
 
@@ -598,6 +608,60 @@ function pared(g, w, d, x, z){
 }
 function rodapie(g, w, d, x, z){ const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.24, d), M.navy); m.position.set(x, 0.12, z); g.add(m); }
 
+/* ── zonas comunes ──────────────────────────────────── */
+// Sala de reuniones: mesa larga, ocho sillas y pantalla en la pared del fondo.
+function salaReuniones(g, W, D){
+  const t = GROSOR;
+  const m = new THREE.Group(); m.position.set(0, 0, -0.4);
+  m.add(caja(3.4, 0.11, 1.5, M.cream, 0, 0.75, 0, 0.05));
+  for (const [x, z] of [[-1.5, -0.55], [1.5, -0.55], [-1.5, 0.55], [1.5, 0.55]]) m.add(cil(0.06, 0.06, 0.72, M.navy, x, 0.36, z, 10));
+  for (const x of [-1.15, -0.4, 0.4, 1.15]){
+    m.add(silla(x, -1.25, 0));
+    m.add(silla(x, 1.25, Math.PI));
+  }
+  g.add(m);
+  bloques.push([m, -1.9, 1.9, -1.7, 1.7]);
+  // pantalla de reuniones en la pared del fondo
+  const p = new THREE.Group(); p.position.set(0, 1.35, -D / 2 + t / 2 + 0.06);
+  p.add(caja(2.2, 1.24, 0.08, M.navy, 0, 0, 0, 0.03));
+  const lienzo = lamina(2.02, 1.06, new THREE.MeshStandardMaterial({ color:PAL.night, emissive:PAL.sky, emissiveIntensity:.5, toneMapped:false }), 0, 0, 0.05);
+  p.add(lienzo);
+  g.add(p);
+}
+
+// Office: encimera con fregadero, cafetera, taburetes y una mesa alta.
+function office(g, W, D){
+  const t = GROSOR;
+  const enc = new THREE.Group(); enc.position.set(0, 0, -D / 2 + 0.75);
+  enc.add(caja(W - 1.6, 0.92, 0.7, M.navy, 0, 0.46, 0, 0.03));
+  enc.add(caja(W - 1.5, 0.08, 0.78, M.cream, 0, 0.95, 0, 0.02));
+  enc.add(caja(0.5, 0.04, 0.4, M.navy2, -1.1, 0.98, 0, 0.01)); // fregadero
+  // cafetera con su piloto encendido
+  const caf = new THREE.Group(); caf.position.set(0.9, 1.0, 0);
+  caf.add(caja(0.34, 0.44, 0.34, M.navy2, 0, 0.22, 0, 0.03));
+  caf.add(caja(0.26, 0.04, 0.26, M.cream, 0, 0.06, 0.02, 0.01));
+  const piloto = bola(0.035, new THREE.MeshStandardMaterial({ color:PAL.night, emissive:PAL.coral, emissiveIntensity:2, toneMapped:false }), 0.11, 0.38, 0.17, 10);
+  caf.add(piloto);
+  enc.add(caf);
+  for (const t2 of [[-1.6, 0.16], [-0.8, 0.16]]) enc.add(cil(0.09, 0.09, 0.02, M.cream, t2[0], 1.0, t2[1], 12)); // tazas
+  g.add(enc);
+  bloques.push([enc, -(W - 1.5) / 2, (W - 1.5) / 2, -0.45, 0.45]);
+  // mesa alta con taburetes
+  const alta = new THREE.Group(); alta.position.set(0, 0, 1.1);
+  alta.add(cil(0.75, 0.75, 0.08, M.cream, 0, 1.02, 0, 22));
+  alta.add(cil(0.09, 0.09, 1.0, M.navy, 0, 0.5, 0, 10));
+  alta.add(cil(0.42, 0.42, 0.05, M.navy, 0, 0.03, 0, 18));
+  for (const a of [0, Math.PI / 2, Math.PI, -Math.PI / 2]){
+    const tb = new THREE.Group(); tb.position.set(Math.sin(a) * 1.15, 0, Math.cos(a) * 1.15);
+    tb.add(cil(0.2, 0.2, 0.07, M.coral, 0, 0.68, 0, 14));
+    tb.add(cil(0.05, 0.05, 0.66, M.navy, 0, 0.33, 0, 8));
+    tb.add(cil(0.24, 0.24, 0.04, M.navy, 0, 0.02, 0, 14));
+    alta.add(tb);
+  }
+  g.add(alta);
+  bloques.push([alta, -1.5, 1.5, -1.5, 1.5]);
+}
+
 // Sala con la puerta en +z. Los dos puestos van en L junto a la esquina del fondo.
 function sala(cfg, esRecepcion = false){
   const g = new THREE.Group();
@@ -620,16 +684,21 @@ function sala(cfg, esRecepcion = false){
 
   ventana(g, 0, -D / 2 + t / 2 + 0.01);
 
-  const alfombra = new THREE.Mesh(new THREE.CircleGeometry(Math.min(W, D) * 0.2, 28), M.navy2);
-  alfombra.rotation.x = -Math.PI / 2; alfombra.position.set(0, 0.014, D * 0.15); alfombra.receiveShadow = true;
-  const ribete = new THREE.Mesh(new THREE.RingGeometry(Math.min(W, D) * 0.16, Math.min(W, D) * 0.178, 28), M.coral);
-  ribete.rotation.x = -Math.PI / 2; ribete.position.set(0, 0.018, D * 0.15);
-  g.add(alfombra, ribete);
+  if (!cfg.comun){
+    const alfombra = new THREE.Mesh(new THREE.CircleGeometry(Math.min(W, D) * 0.2, 28), M.navy2);
+    alfombra.rotation.x = -Math.PI / 2; alfombra.position.set(0, 0.014, D * 0.15); alfombra.receiveShadow = true;
+    const ribete = new THREE.Mesh(new THREE.RingGeometry(Math.min(W, D) * 0.16, Math.min(W, D) * 0.178, 28), M.coral);
+    ribete.rotation.x = -Math.PI / 2; ribete.position.set(0, 0.018, D * 0.15);
+    g.add(alfombra, ribete);
+  }
 
   const maceta = planta(W / 2 - 0.8, D / 2 - 1.0, 0.9); g.add(maceta);
   bloques.push([maceta, -0.35, 0.35, -0.35, 0.35]);
 
-  if (esRecepcion){
+  if (cfg.comun){
+    // zonas comunes: sin puestos de trabajo, se cruzan todos
+    if (cfg.id === 'reuniones') salaReuniones(g, W, D); else office(g, W, D);
+  } else if (esRecepcion){
     // mostrador en U y la asistenta detrás, de cara a la puerta
     const p = puesto(cfg.puestos[0], cfg.id, 0, -1.2, Math.PI);
     g.add(p);
@@ -665,15 +734,54 @@ function sala(cfg, esRecepcion = false){
   return g;
 }
 
+// Entrada a la calle: puerta de cristal, felpudo y un sofá de espera. Es lo que hace que la
+// planta se lea como una oficina y no como una rejilla de salas.
+function vestibulo(x, z){
+  const g = new THREE.Group(); g.position.set(x, 0, z);
+  entrada = new THREE.Vector3(x, 0, z + 1.4); // el felpudo de fuera, para encuadrarlo
+  const t = GROSOR;
+  // hueco de la puerta con sus dos jambas y el dintel
+  for (const sx of [-1, 1]) g.add(caja(1.9, ALTO, t, M.pared, sx * (1.9 / 2 + 1.1), ALTO / 2, 0, 0.02));
+  g.add(caja(2.2, 0.45, t, M.pared, 0, ALTO - 0.22, 0, 0.02));
+  for (const sx of [-1, 1]) g.add(caja(0.09, ALTO - 0.45, 0.09, M.navy, sx * 1.05, (ALTO - 0.45) / 2, 0, 0.02));
+  // hojas de cristal
+  const cristal = new THREE.MeshStandardMaterial({ color:0xbcd4e6, transparent:true, opacity:.22, roughness:.05, metalness:.2 });
+  for (const sx of [-1, 1]){
+    const h = caja(0.98, ALTO - 0.5, 0.05, cristal, sx * 0.52, (ALTO - 0.5) / 2, 0, 0.01);
+    h.castShadow = false;
+    g.add(h);
+    g.add(cil(0.025, 0.025, 0.5, M.cream, sx * 0.14, 1.05, 0.05, 8));
+  }
+  // zaguán exterior con el felpudo, para que la puerta no flote sobre el suelo
+  const zaguan = new THREE.Mesh(new THREE.PlaneGeometry(7.5, 3.4), mat(PAL.navy2, { roughness:.9 }));
+  zaguan.rotation.x = -Math.PI / 2; zaguan.position.set(0, 0.006, 1.7); zaguan.receiveShadow = true;
+  g.add(zaguan);
+  const felpudo = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1.0), mat(PAL.night, { roughness:1 }));
+  felpudo.rotation.x = -Math.PI / 2; felpudo.position.set(0, 0.012, 0.85); felpudo.receiveShadow = true;
+  g.add(felpudo);
+  // sofá de espera y mesita, junto a la puerta y de cara al mostrador
+  const espera = new THREE.Group(); espera.position.set(-2.7, 0, 1.5); espera.rotation.y = 0.6;
+  espera.add(caja(2.0, 0.42, 0.8, M.navy, 0, 0.26, 0, 0.08));
+  espera.add(caja(2.0, 0.6, 0.22, M.navy, 0, 0.66, -0.3, 0.08));
+  for (const sx of [-1, 1]) espera.add(caja(0.22, 0.5, 0.8, M.navy, sx * 0.9, 0.42, 0, 0.07));
+  espera.add(caja(0.9, 0.06, 0.5, M.cream, 0, 0.42, 1.0, 0.02));
+  for (const [mx, mz] of [[-0.35, 1.0], [0.35, 1.0]]) espera.add(cil(0.04, 0.04, 0.4, M.navy, mx, 0.2, mz, 8));
+  g.add(espera);
+  bloques.push([espera, -1.3, 1.3, -0.6, 1.3]);
+  const maceta = planta(2.7, 1.5, 1.0); g.add(maceta);
+  bloques.push([maceta, -0.35, 0.35, -0.35, 0.35]);
+  edificio.add(g);
+}
+
 /* ── planta: recepción al frente, despachos a los lados ── */
 const edificio = new THREE.Group();
 scene.add(edificio);
-let limites = { x0:-10, x1:10, z0:-10, z1:10 };
+let limites = { x0:-10, x1:10, z0:-10, z1:10 }, entrada = null;
 
 function construye(){
   // Dos filas enfrentadas por el pasillo, repartidas para que la planta quede lo más
   // cuadrada posible: en línea medía 35 m de ancho y no cabía en una pantalla de móvil.
-  const porId = new Map(DESPACHOS.map(d => [d.id, d]));
+  const porId = new Map([...DESPACHOS, ...COMUNES].map(d => [d.id, d]));
   const usados = new Set([...ORDEN.norte, ...ORDEN.sur]);
   const filas = [
     ORDEN.norte.map(id => porId.get(id)).filter(Boolean),
@@ -696,9 +804,11 @@ function construye(){
   // recepción al frente del pasillo, no en un extremo: así la planta no se alarga y es lo
   // primero que se ve al entrar
   const rec = sala(RECEPCION, true);
-  rec.position.set(largo / 2, 0, PASILLO / 2 + FONDO + 6.4 / 2 + 1.2); rec.rotation.y = Math.PI;
+  const zRec = PASILLO / 2 + FONDO + 6.4 / 2 + 1.2;
+  rec.position.set(largo / 2, 0, zRec); rec.rotation.y = Math.PI;
   edificio.add(rec);
   recepcion = rec;
+  vestibulo(largo / 2, zRec + 6.4 / 2 + 0.9); // en la fachada de recepción, con su zaguán por delante
 
   edificio.position.x = -largo / 2;
   scene.updateMatrixWorld(true);
@@ -710,6 +820,16 @@ function construye(){
   for (const g of puestos.values()) obstaculos.push(aabb(g, -1.1, 1.1, -1.25, 0.6));
   for (const [obj, ...r] of bloques) obstaculos.push(aabb(obj, ...r));
   limites = { x0:-largo / 2 - 6.4 - 2, x1:largo / 2 + 2, z0:-(PASILLO / 2 + FONDO + 1.5), z1:PASILLO / 2 + FONDO + 1.5 };
+
+  // el pasillo con suelo propio y más claro: sin contraste la circulación no se lee
+  const sueloPasillo = mat(0x3a3a48, { roughness:.85 });
+  const corredor = new THREE.Mesh(new THREE.PlaneGeometry(largo + 1, PASILLO - 0.3), sueloPasillo);
+  corredor.rotation.x = -Math.PI / 2; corredor.position.set(largo / 2, 0.006, 0); corredor.receiveShadow = true;
+  edificio.add(corredor);
+  // y su prolongación hasta la entrada, por delante de recepción
+  const acceso = new THREE.Mesh(new THREE.PlaneGeometry(PASILLO - 0.3, FONDO + 3), sueloPasillo);
+  acceso.rotation.x = -Math.PI / 2; acceso.position.set(largo / 2, 0.006, PASILLO / 2 + (FONDO + 3) / 2 - 0.2); acceso.receiveShadow = true;
+  edificio.add(acceso);
 
   const w = largo + 26, prof = FONDO * 2 + PASILLO + 20;
   const suelo = new THREE.Mesh(new THREE.PlaneGeometry(w, prof), M.wood);
@@ -777,6 +897,7 @@ function pintaSala(id){
       <span class="mod">${cfg.puestos.length} ${cfg.puestos.length === 1 ? 'puesto' : 'puestos'}</span>
       ${botonCerrar}
     </div>
+    ${cfg.comun ? `<div class="pie">Zona común: sin agentes asignados.</div>` : ''}
     ${cfg.puestos.map(p => {
       const e = puestos.get(p)?.userData.estado || { situacion:'libre', detalle:'', cuando:null };
       const st = SIT[e.situacion];
@@ -958,6 +1079,8 @@ function encuadraGeneral(){
     const z = s.userData.zona;
     if (z) caja.expandByPoint(new THREE.Vector3(z.x0, 0, z.z0)).expandByPoint(new THREE.Vector3(z.x1, ALTO, z.z1));
   }
+  // la entrada también cuenta: si no, queda fuera de la vista general
+  if (entrada) caja.expandByPoint(entrada.clone().setY(0)).expandByPoint(entrada.clone().setY(ALTO));
   if (caja.isEmpty()){ vistaGeneral.tgt.set(0, 1, 0); vistaGeneral.pos.set(6, 22, 26); return; }
   const c = caja.getCenter(new THREE.Vector3()), t = caja.getSize(new THREE.Vector3());
   // Con una planta casi cuadrada y una pantalla estrecha, el límite es siempre el ancho: al
@@ -1129,6 +1252,13 @@ function actualiza(datos){
   }
   for (const [id, s] of salas){
     const cfg = s.userData.cfg;
+    // una zona común no tiene agentes: ni estado ni contador, solo su nombre
+    if (cfg.comun){
+      s.userData.div.className = 'placa card comun';
+      s.userData.div.dataset.ini = cfg.nombre[0];
+      s.userData.div.innerHTML = `<b>${esc(cfg.nombre)}</b>`;
+      continue;
+    }
     const suyos = cfg.puestos.map(p => est[p]?.situacion || 'libre');
     const trabajando = suyos.filter(x => x === 'trabajando').length;
     const parados = suyos.filter(x => x === 'parado').length;
@@ -1181,7 +1311,7 @@ async function principal(){
   setInterval(() => { cargaModelos().catch(() => {}); cargaAgentes().then(() => actualiza(ultimoJson)).catch(() => {}); }, 30_000);
 
   if (Q.has('test')) window.__oficina = {
-    yo, puestos, salas, cam:camera.position, camara:camera, target:controls.target, maxDistance:controls.maxDistance, V3:THREE.Vector3,
+    yo, puestos, salas, edificio, cam:camera.position, camara:camera, target:controls.target, maxDistance:controls.maxDistance, V3:THREE.Vector3,
     recepcion: rec,
     mercados: salas.get('mercados').getWorldPosition(new THREE.Vector3()),
     estado: id => puestos.get(id)?.userData.estado,
