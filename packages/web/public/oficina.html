@@ -276,6 +276,7 @@ const EJEMPLO = {
 
 /* ── medidas ────────────────────────────────────────── */
 const PASILLO = 6, FONDO = 8.4, ALTO = 2.2, GROSOR = 0.15, PUERTA = 2.2, ANCHO = 9.4;
+const TRANSVERSAL = 4.6; // pasillo vertical que baja desde recepción y corta las dos filas
 const RADIO = 0.35, VEL = 3.6, ROBOT = 0.62;
 
 // normaliza el JSON del endpoint: todo puesto conocido queda con una situación.
@@ -799,18 +800,23 @@ function construye(){
   filas.forEach((fila, lado) => {
     // cada fila se centra sobre el pasillo, así la que tiene menos salas no descuadra la planta
     const desplazamiento = (Math.max(...filas.map(f => f.length)) - fila.length) * ANCHO / 2;
+    const corte = Math.ceil(fila.length / 2); // por dónde pasa el pasillo vertical
     fila.forEach((cfg, i) => {
-      // Una sola pared por medianera. La fila sur va rotada 180°, así que su pared local
-      // derecha cae a la izquierda en el mundo: ahí la omite la primera sala, no la última.
-      cfg.cierraFila = lado ? i === 0 : i === fila.length - 1;
+      // Una sola pared por medianera, salvo a los lados del pasillo vertical, donde cada
+      // sala necesita la suya. La fila sur va rotada 180°, así que su pared local derecha
+      // cae a la izquierda en el mundo: ahí la omite la primera sala, no la última.
+      const ultima = lado ? i === 0 : i === fila.length - 1;
+      const juntoAlCorte = lado ? i === corte : i === corte - 1;
+      cfg.cierraFila = ultima || juntoAlCorte;
       const s = sala(cfg);
-      // paso = ANCHO exacto: cada sala ocupa de -W/2 a +W/2 y las medianeras coinciden
-      s.position.set(desplazamiento + i * ANCHO + ANCHO / 2, 0, (lado ? 1 : -1) * (PASILLO / 2 + FONDO / 2));
+      // paso = ANCHO exacto, más el hueco del pasillo a partir del corte
+      const hueco = i >= corte ? TRANSVERSAL : 0;
+      s.position.set(desplazamiento + i * ANCHO + ANCHO / 2 + hueco, 0, (lado ? 1 : -1) * (PASILLO / 2 + FONDO / 2));
       if (lado) s.rotation.y = Math.PI;
       edificio.add(s);
     });
   });
-  const largo = Math.max(...filas.map(f => f.length)) * ANCHO;
+  const largo = Math.max(...filas.map(f => f.length)) * ANCHO + TRANSVERSAL;
 
   // recepción arriba, cerrando el pasillo por el norte: la entrada queda en la cabecera de
   // la planta y el pasillo baja desde ella hacia los despachos
@@ -837,9 +843,14 @@ function construye(){
   const corredor = new THREE.Mesh(new THREE.PlaneGeometry(largo + 1, PASILLO - 0.3), sueloPasillo);
   corredor.rotation.x = -Math.PI / 2; corredor.position.set(largo / 2, 0.006, 0); corredor.receiveShadow = true;
   edificio.add(corredor);
-  // y su prolongación hacia el norte, hasta la puerta de recepción
-  const acceso = new THREE.Mesh(new THREE.PlaneGeometry(PASILLO - 0.3, FONDO + 3), sueloPasillo);
-  acceso.rotation.x = -Math.PI / 2; acceso.position.set(largo / 2, 0.006, -(PASILLO / 2 + (FONDO + 3) / 2 - 0.2)); acceso.receiveShadow = true;
+  // el pasillo vertical: baja desde la puerta de recepción, corta las dos filas y llega al fondo
+  const largoAcceso = (PASILLO / 2 + FONDO + 1.5) + (PASILLO / 2 + FONDO + 1.2);
+  const acceso = new THREE.Mesh(new THREE.PlaneGeometry(TRANSVERSAL - 0.3, largoAcceso), sueloPasillo);
+  acceso.rotation.x = -Math.PI / 2;
+  // de la puerta de recepción (z = -zRec + 6.4/2) al fondo de la fila sur
+  const zNorte = -(PASILLO / 2 + FONDO + 1.2), zSur = PASILLO / 2 + FONDO + 1.5;
+  acceso.position.set(largo / 2, 0.006, (zNorte + zSur) / 2);
+  acceso.receiveShadow = true;
   edificio.add(acceso);
 
   const w = largo + 26, prof = FONDO * 2 + PASILLO + 20;

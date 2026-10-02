@@ -18,7 +18,7 @@ Una planta cartoon con seis despachos de dos puestos y una recepción. Cada agen
 
 ## Cómo está distribuida la planta
 
-Se entra por arriba, por una puerta de cristal con su zaguán y su felpudo, a un vestíbulo con sofá de espera, frente al mostrador de recepción, que cierra la planta por el norte. De ahí baja el pasillo, con suelo propio más claro, que recorre la planta entre las dos filas de salas.
+Se entra por arriba, por una puerta de cristal con su zaguán y su felpudo, a un vestíbulo con sofá de espera, frente al mostrador de recepción, que cierra la planta por el norte. De su puerta baja un pasillo que parte las dos filas por el centro y llega al fondo, de modo que se alcanza cualquier despacho sin rodear. El otro pasillo, horizontal, separa las dos filas. De ahí baja el pasillo, con suelo propio más claro, que recorre la planta entre las dos filas de salas.
 
 En el centro de cada fila hay una zona común, por donde pasa todo el mundo: la sala de reuniones con su mesa larga y su pantalla, y el office con encimera, cafetera y mesa alta con taburetes. No tienen agentes: su rótulo solo lleva el nombre, sin estado.
 
