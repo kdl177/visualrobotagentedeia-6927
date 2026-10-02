@@ -126,6 +126,25 @@ aside .pie{font:11px/1.7 var(--mono);color:var(--mut);margin-top:12px;padding-to
 .chat form button:disabled,.chat textarea:disabled{opacity:.5;cursor:default}
 .chat .nota{font-size:10.5px;color:var(--mut);margin-top:8px;line-height:1.5}
 .chat .nota code{display:block;margin:6px 0;padding:7px 9px;border-radius:8px;background:rgba(255,255,255,.055);color:var(--cream);font:10.5px/1.5 var(--mono);user-select:all;word-break:break-all}
+/* panel de órdenes de recepción */
+.orden-tit{font-family:var(--display);font-weight:700;font-size:13px;letter-spacing:.02em;margin-bottom:8px}
+#destino{width:100%;background:rgba(255,255,255,.055);border:1px solid var(--line);border-radius:12px;color:var(--cream);font:500 12.5px var(--body);padding:9px 11px;outline:none;cursor:pointer}
+#destino:focus{border-color:rgba(255,255,255,.28)}
+#destino optgroup{background:var(--elev2);color:var(--mut);font-style:normal}
+#destino option{background:var(--elev2);color:var(--cream)}
+.ordenes{display:flex;flex-direction:column;gap:8px;margin-top:12px;max-height:220px;overflow-y:auto}
+.ordenes:empty{display:none}
+.orden{border:1px solid var(--line);border-left-width:3px;border-radius:10px;padding:9px 11px;background:rgba(255,255,255,.03)}
+.orden.curso{border-left-color:var(--accent)}
+.orden.hecha{border-left-color:var(--accent)}
+.orden.anotada{border-left-color:var(--cream3)}
+.orden.fallo{border-left-color:#f87171}
+.orden-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:12px}
+.orden-top b{font-weight:600}
+.orden-top span{font:10px var(--mono);color:var(--mut);text-transform:uppercase;letter-spacing:.06em}
+.orden-txt{font-size:12.5px;line-height:1.45;margin-top:5px}
+.orden-res{font-size:12px;line-height:1.5;margin-top:7px;padding-top:7px;border-top:1px solid var(--line);color:var(--cream2);white-space:pre-wrap}
+.orden-meta{font:10.5px var(--mono);color:var(--mut);margin-top:6px}
 
 .msg{position:fixed;inset:0;z-index:4;display:grid;place-items:center;text-align:center;color:var(--mut);font-size:13.5px;padding:20px;background:var(--night)}
 .msg b{display:block;font-family:var(--display);color:var(--cream);font-size:18px;margin-bottom:6px}
@@ -226,7 +245,9 @@ const situacion = s => SIT[s] ? s : 'libre';
 const RECEPCION = { id:'recepcion', nombre:'Recepción', puestos:['asistenta'] };
 // despacho de los agentes que existen de verdad en agents/: su estado, coste y chat salen
 // de /api/agentes, no del endpoint de estados
-const SIMBAI = { id:'simbai', nombre:'SIMBAI', reales:true, puestos:['captacion-crm', 'recepcion-abogados'] };
+// Agentes que existen de verdad en agents/ y que el puente sabe ejecutar. Solo a estos se
+// les puede mandar una tarea que se cumpla; el resto de puestos son figurantes del JSON.
+const SIMBAI = { id:'simbai', nombre:'SIMBAI', reales:true, puestos:['captacion-crm', 'recepcion-abogados', 'inmobiliaria'] };
 const DESPACHOS = [
   { id:'mercados', nombre:'Mercados', puestos:['explorador', 'analista'] },
   { id:'desarrollo', nombre:'Desarrollo', puestos:['constructor', 'revisor'] },
@@ -241,7 +262,7 @@ const ROL = {
   'disenador-flujos':'Diseñador de flujos', integrador:'Integrador',
   'director-arte':'Director de arte', maquetador:'Maquetador',
   'auditor-tecnico':'Auditor técnico', 'auditor-negocio':'Auditor de negocio',
-  'captacion-crm':'Captación CRM', 'recepcion-abogados':'Recepción Abogados',
+  'captacion-crm':'Captación CRM', 'recepcion-abogados':'Recepción Abogados', 'inmobiliaria':'Inmobiliaria',
 };
 const REALES = new Set(SIMBAI.puestos);
 
@@ -971,8 +992,15 @@ const sinCuerpo = r => r.text().then(() => null);
 const cargaModelos = () => fetch('/api/modelos').then(r => r.ok ? r.json() : sinCuerpo(r)).catch(() => null)
   .then(m => { localListo = Array.isArray(m) && m.some(x => x.tipo === 'ollama' && x.listo); if (localListo && !charla.turnos.length) charla.motor = 'local'; });
 
+// Todos los puestos a los que se puede mandar una orden, los reales primero.
+function destinatarios(){
+  const otros = [RECEPCION, ...DESPACHOS].filter(d => !d.reales).flatMap(d => d.puestos.map(p => ({ p, sala:d.nombre })));
+  return { reales:SIMBAI.puestos, figurantes:otros };
+}
+
 function bloqueChat(id){
   const con = interlocutor(id);
+  if (id === 'recepcion') return bloqueOrdenes();
   return `<div class="chat">
     ${id === 'simbai' ? `<div class="motores" id="conQuien">
       ${SIMBAI.puestos.map(p => `<button type="button" data-agente="${esc(p)}">${esc(ROL[p] || p)}</button>`).join('')}
@@ -991,7 +1019,126 @@ function bloqueChat(id){
     : `<div class="nota">Este navegador no tiene el token del chat. En el PC, abre PowerShell y ejecuta:<br><code>$tk=(Get-Content Apps\\simbai-os\\.token -Raw).Trim(); Start-Process "http://localhost:8790/oficina.html?tk=$tk"</code><br>Se guarda una vez y ya no hace falta más.</div>`}
   </div>`;
 }
+/* ── recepción: mandar tareas a los agentes ─────────── */
+// El estado de cada orden vive aquí mientras la oficina esté abierta.
+const ordenes = [];
+let paraQuien = SIMBAI.puestos[0]; // destinatario elegido en el selector
+
+function bloqueOrdenes(){
+  const { reales, figurantes } = destinatarios();
+  if (!TK) return `<div class="chat"><div class="nota">Este navegador no tiene el token. En el PC, abre PowerShell y ejecuta:<br><code>$tk=(Get-Content Apps\\simbai-os\\.token -Raw).Trim(); Start-Process "http://localhost:8790/oficina.html?tk=$tk"</code></div></div>`;
+  return `<div class="chat">
+    <div class="orden-tit">Mandar una tarea</div>
+    <select id="destino" aria-label="A quién va la tarea">
+      <optgroup label="Agentes que la ejecutan">
+        ${reales.map(p => `<option value="${esc(p)}"${p === paraQuien ? ' selected' : ''}>${esc(ROL[p] || p)}</option>`).join('')}
+      </optgroup>
+      <optgroup label="Puestos sin agente detrás">
+        ${figurantes.map(({ p, sala }) => `<option value="${esc(p)}"${p === paraQuien ? ' selected' : ''}>${esc(ROL[p] || p)} · ${esc(sala)}</option>`).join('')}
+      </optgroup>
+    </select>
+    <div class="motores">
+      <button type="button" data-motor="local">Local · gratis</button>
+      <button type="button" data-motor="claude">Claude · ~0,05 USD</button>
+    </div>
+    <form id="envio">
+      <textarea id="texto" rows="2" placeholder="Qué tiene que hacer…"></textarea>
+      <button type="submit" aria-label="Mandar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+    </form>
+    <div class="nota" id="nota"></div>
+    <div class="ordenes" id="ordenes"></div>
+  </div>`;
+}
+
+function pintaOrdenes(){
+  const c = $('#ordenes');
+  if (!c) return;
+  c.innerHTML = ordenes.map(o => `
+    <div class="orden ${esc(o.estado)}">
+      <div class="orden-top"><b>${esc(ROL[o.para] || o.para)}</b><span>${o.estado === 'curso' ? 'en curso' : o.estado === 'hecha' ? 'hecha' : o.estado === 'anotada' ? 'anotada' : 'error'}</span></div>
+      <div class="orden-txt">${esc(o.texto)}</div>
+      ${o.respuesta ? `<div class="orden-res">${esc(o.respuesta)}</div>` : ''}
+      ${o.coste != null ? `<div class="orden-meta">${o.motor === 'local' ? 'local · gratis' : `${o.coste} USD`}${o.ms ? ` · ${Math.round(o.ms / 1000)} s` : ''}</div>` : ''}
+    </div>`).join('');
+  c.scrollTop = 0;
+}
+
+// Manda la tarea. Si el destinatario es un agente real, se ejecuta de verdad por el puente;
+// si es un puesto del JSON, se anota y se le ve trabajando, pero no hay nada que ejecutar.
+async function mandaOrden(){
+  const ta = $('#texto'), texto = ta?.value.trim();
+  if (!texto) return;
+  const para = $('#destino')?.value || paraQuien;
+  paraQuien = para;
+  const real = REALES.has(para);
+  const o = { para, texto, estado: real ? 'curso' : 'anotada', respuesta:null, coste:null, ms:null, motor:charla.motor };
+  ordenes.unshift(o);
+  ta.value = '';
+  const g = puestos.get(para);
+  if (g) animo(g, 'pensando');
+  pintaOrdenes();
+
+  if (!real){
+    // figurante: se queda trabajando con el texto de la orden como detalle
+    if (g){
+      animo(g, null);
+      g.userData.ordenado = true;
+      g.userData.estado = { ...(g.userData.estado || {}), situacion:'trabajando', detalle:texto, cuando:new Date().toISOString() };
+      aplica(para, g.userData.estado);
+    }
+    o.respuesta = 'Puesto sin agente detrás: la tarea queda anotada, pero no se ejecuta.';
+    pintaOrdenes();
+    return;
+  }
+
+  try {
+    const r = await fetch('/api/hablar', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'X-Token':TK },
+      body:JSON.stringify({ agente:para, mensaje:texto, sesion:'orden-' + Date.now().toString(36), motor:charla.motor }),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok){
+      o.estado = 'fallo';
+      o.respuesta = r.status === 401 ? 'Token no válido.'
+        : r.status === 503 ? 'El puente de agentes está parado. En PowerShell: powershell -File Apps\\simbai-os\\start.ps1'
+        : d.error || `HTTP ${r.status}`;
+    } else {
+      o.estado = 'hecha'; o.respuesta = d.texto; o.coste = d.coste; o.ms = d.ms; o.motor = d.motor;
+      if (g) di(g, d.texto || '');
+    }
+  } catch {
+    o.estado = 'fallo'; o.respuesta = 'Sin conexión con el PC.';
+  }
+  if (o.estado === 'fallo' && g) animo(g, null);
+  pintaOrdenes();
+}
+
+function enlazaOrdenes(){
+  const sel = $('#destino');
+  if (!sel) return; // sin token el panel solo muestra cómo conseguirlo
+  sel.onchange = e => { paraQuien = e.target.value; };
+  $('#panel .motores')?.querySelectorAll('button').forEach(b => b.onclick = () => { charla.motor = b.dataset.motor; notaMotor(); });
+  const form = $('#envio');
+  form.onsubmit = e => { e.preventDefault(); mandaOrden(); };
+  $('#texto').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); mandaOrden(); } };
+  notaMotor();
+  pintaOrdenes();
+}
+// la nota de coste, sin depender del hilo del chat (en recepción no hay)
+function notaMotor(){
+  if (!localListo && charla.motor === 'local') charla.motor = 'claude';
+  const bl = $('#panel .motores button[data-motor=local]');
+  if (bl){ bl.disabled = !localListo; bl.textContent = localListo ? 'Local · gratis' : 'Local · Ollama apagado'; }
+  $('#panel .motores')?.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.motor === charla.motor));
+  const nota = $('#nota');
+  if (nota) nota.textContent = charla.motor === 'local'
+    ? 'Modelo local: gratis, tarda alrededor de un minuto. La tarea queda en el log del agente.'
+    : (localListo ? '' : 'Ollama está apagado. ') + 'Claude: unos 0,04 USD por tarea. Queda en el log del agente.';
+}
+
 function enlazaChat(id){
+  if (id === 'recepcion'){ charla.sala = id; enlazaOrdenes(); return; }
   charla.sala = id;
   if (id === 'simbai' && !charla.agente) charla.agente = SIMBAI.puestos[0]; // sin esto ningún botón sale marcado
   // cambiar de agente empieza conversación nueva: cada agente tiene su propia sesión
@@ -1269,6 +1416,8 @@ function actualiza(datos){
   for (const p of SIMBAI.puestos) est[p] = deAgente(agentesReales.get(p));
   for (const [id, e] of Object.entries(est)){
     const g = puestos.get(id);
+    // una orden recién dada a un figurante manda sobre el JSON hasta el siguiente cambio real
+    if (g?.userData.ordenado && e.situacion === 'libre') continue;
     if (g && !g.userData.animo) aplica(id, e);
     else if (g) g.userData.estado = e; // conversando: se guarda y se aplica al terminar
   }

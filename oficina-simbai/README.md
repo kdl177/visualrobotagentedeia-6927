@@ -37,6 +37,17 @@ Los dos puestos de cada despacho van en L sobre la misma esquina, con una pizarr
 
 El despacho SIMBAI es distinto: sus dos puestos son los agentes reales de `agents/`. Su estado sale de cuándo conversaron por última vez, su tarjeta muestra conversaciones, turnos y coste acumulado, y desde ella se puede hablar con cualquiera de los dos. El endpoint de estados no los toca.
 
+## Mandar tareas desde recepción
+
+Pulsa Recepción y tendrás un panel para encargar trabajo: eliges destinatario, motor (local gratis o Claude) y escribes la tarea.
+
+El selector separa dos grupos, porque no todos pueden cumplirla:
+
+- **Agentes que la ejecutan**: los que existen en `agents/` y el puente sabe lanzar (`captacion-crm`, `recepcion-abogados`, `inmobiliaria`). La tarea se ejecuta de verdad, su robot trabaja en escena y al terminar ves la respuesta, el tiempo y el coste. Queda en el log del agente.
+- **Puestos sin agente detrás**: los once del endpoint de estados. Son figurantes: la tarea queda anotada y se les ve trabajando con ese detalle, pero no se ejecuta nada. El panel lo dice en cada orden.
+
+Debajo queda el registro de lo encargado, con su estado: en curso, hecha, anotada o con error.
+
 ## Estados
 
 El color se ve desde la vista general, sin acercarse, en el robot y en la baliza de su mesa.
