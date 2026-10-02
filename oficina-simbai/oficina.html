@@ -740,9 +740,10 @@ function sala(cfg, esRecepcion = false){
 
 // Entrada a la calle: puerta de cristal, felpudo y un sofá de espera. Es lo que hace que la
 // planta se lea como una oficina y no como una rejilla de salas.
-function vestibulo(x, z){
-  const g = new THREE.Group(); g.position.set(x, 0, z);
-  entrada = new THREE.Vector3(x, 0, z + 1.4); // el felpudo de fuera, para encuadrarlo
+function vestibulo(x, z, giro = 0){
+  const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = giro;
+  // el felpudo de fuera, para encuadrarlo; el giro decide hacia qué lado da la calle
+  entrada = new THREE.Vector3(x + Math.sin(giro) * 1.4, 0, z + Math.cos(giro) * 1.4);
   const t = GROSOR;
   // hueco de la puerta con sus dos jambas y el dintel
   for (const sx of [-1, 1]) g.add(caja(1.9, ALTO, t, M.pared, sx * (1.9 / 2 + 1.1), ALTO / 2, 0, 0.02));
@@ -775,12 +776,14 @@ function vestibulo(x, z){
   const maceta = planta(2.7, 1.5, 1.0); g.add(maceta);
   bloques.push([maceta, -0.35, 0.35, -0.35, 0.35]);
   edificio.add(g);
+  g.updateWorldMatrix(true, true);
+  vestibuloCaja = new THREE.Box3().setFromObject(g);
 }
 
 /* ── planta: recepción al frente, despachos a los lados ── */
 const edificio = new THREE.Group();
 scene.add(edificio);
-let limites = { x0:-10, x1:10, z0:-10, z1:10 }, entrada = null;
+let limites = { x0:-10, x1:10, z0:-10, z1:10 }, entrada = null, vestibuloCaja = null;
 
 function construye(){
   // Dos filas enfrentadas por el pasillo, repartidas para que la planta quede lo más
@@ -809,14 +812,14 @@ function construye(){
   });
   const largo = Math.max(...filas.map(f => f.length)) * ANCHO;
 
-  // recepción al frente del pasillo, no en un extremo: así la planta no se alarga y es lo
-  // primero que se ve al entrar
+  // recepción arriba, cerrando el pasillo por el norte: la entrada queda en la cabecera de
+  // la planta y el pasillo baja desde ella hacia los despachos
   const rec = sala(RECEPCION, true);
-  const zRec = PASILLO / 2 + FONDO + 6.4 / 2 + 1.2;
-  rec.position.set(largo / 2, 0, zRec); rec.rotation.y = Math.PI;
+  const zRec = -(PASILLO / 2 + FONDO + 6.4 / 2 + 1.2);
+  rec.position.set(largo / 2, 0, zRec); // sin rotar: su puerta ya mira a +z, hacia el pasillo
   edificio.add(rec);
   recepcion = rec;
-  vestibulo(largo / 2, zRec + 6.4 / 2 + 0.9); // en la fachada de recepción, con su zaguán por delante
+  vestibulo(largo / 2, zRec - 6.4 / 2 - 0.9, Math.PI); // la calle queda por encima, mirando al norte
 
   edificio.position.x = -largo / 2;
   scene.updateMatrixWorld(true);
@@ -834,9 +837,9 @@ function construye(){
   const corredor = new THREE.Mesh(new THREE.PlaneGeometry(largo + 1, PASILLO - 0.3), sueloPasillo);
   corredor.rotation.x = -Math.PI / 2; corredor.position.set(largo / 2, 0.006, 0); corredor.receiveShadow = true;
   edificio.add(corredor);
-  // y su prolongación hasta la entrada, por delante de recepción
+  // y su prolongación hacia el norte, hasta la puerta de recepción
   const acceso = new THREE.Mesh(new THREE.PlaneGeometry(PASILLO - 0.3, FONDO + 3), sueloPasillo);
-  acceso.rotation.x = -Math.PI / 2; acceso.position.set(largo / 2, 0.006, PASILLO / 2 + (FONDO + 3) / 2 - 0.2); acceso.receiveShadow = true;
+  acceso.rotation.x = -Math.PI / 2; acceso.position.set(largo / 2, 0.006, -(PASILLO / 2 + (FONDO + 3) / 2 - 0.2)); acceso.receiveShadow = true;
   edificio.add(acceso);
 
   const w = largo + 26, prof = FONDO * 2 + PASILLO + 20;
@@ -1087,8 +1090,8 @@ function encuadraGeneral(){
     const z = s.userData.zona;
     if (z) caja.expandByPoint(new THREE.Vector3(z.x0, 0, z.z0)).expandByPoint(new THREE.Vector3(z.x1, ALTO, z.z1));
   }
-  // la entrada también cuenta: si no, queda fuera de la vista general
-  if (entrada) caja.expandByPoint(entrada.clone().setY(0)).expandByPoint(entrada.clone().setY(ALTO));
+  // el vestíbulo entero, no solo el felpudo: la puerta y el zaguán también ocupan
+  if (vestibuloCaja) caja.union(vestibuloCaja);
   if (caja.isEmpty()){ vistaGeneral.tgt.set(0, 1, 0); vistaGeneral.pos.set(6, 22, 26); return; }
   const c = caja.getCenter(new THREE.Vector3()), t = caja.getSize(new THREE.Vector3());
   // Con una planta casi cuadrada y una pantalla estrecha, el límite es siempre el ancho: al
