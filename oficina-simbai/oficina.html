@@ -105,7 +105,9 @@ aside .pie{font:11px/1.7 var(--mono);color:var(--mut);margin-top:12px;padding-to
 
 /* chat con la asistenta de recepción */
 .chat{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
-.chat .hilo{display:flex;flex-direction:column;gap:8px;max-height:200px;overflow-y:auto;padding-right:2px}
+/* El hilo crece con la conversación; quien desplaza es el panel. Con un alto fijo de 200px
+   la conversación quedaba encerrada en tres mensajes y no se podía leer lo anterior. */
+.chat .hilo{display:flex;flex-direction:column;gap:8px;padding-right:2px}
 .chat .hilo:empty{display:none}
 .chat .m{max-width:88%;padding:9px 12px;border-radius:14px;font-size:12.5px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
 .chat .m.mio{align-self:flex-end;background:var(--accent);color:var(--night);border-bottom-right-radius:5px}
@@ -133,6 +135,12 @@ aside .pie{font:11px/1.7 var(--mono);color:var(--mut);margin-top:12px;padding-to
 #destino optgroup{background:var(--elev2);color:var(--mut);font-style:normal}
 #destino option{background:var(--elev2);color:var(--cream)}
 .ordenes{display:flex;flex-direction:column;gap:8px;margin-top:12px;max-height:220px;overflow-y:auto}
+.orden-res.md{max-height:260px;overflow-y:auto;white-space:normal;line-height:1.5}
+.orden-res.md h4{font:700 12px var(--display);margin:8px 0 4px;letter-spacing:.02em}
+.orden-res.md p{margin:0 0 6px}
+.orden-res.md ul{margin:0 0 6px 16px;padding:0}
+.orden-res.md pre{white-space:pre-wrap;word-break:break-word;background:rgba(255,255,255,.055);border-radius:8px;padding:7px 9px;font:10.5px/1.5 var(--mono);margin:6px 0}
+.orden-res.md a{color:var(--accent)}
 .ordenes:empty{display:none}
 .orden{border:1px solid var(--line);border-left-width:3px;border-radius:10px;padding:9px 11px;background:rgba(255,255,255,.03)}
 .orden.curso{border-left-color:var(--accent)}
@@ -219,6 +227,8 @@ const CFG = {
   labels: flag('labels', true),
   // el panel de estados vive aquí por defecto; ?estado= lo cambia y ?estado= vacío lo apaga
   estado: Q.has('estado') ? Q.get('estado') : 'http://localhost:8080/estado.json',
+  // API de encargos (POST /encargo, GET /encargo/<id>): el mismo servidor que el estado
+  encargos: Q.has('encargos') ? Q.get('encargos') : 'http://localhost:8080',
 };
 CFG.chat = flag('chat', !CFG.embed);
 if (CFG.embed) document.body.classList.add('embed');
@@ -252,15 +262,19 @@ const DESPACHOS = [
   { id:'mercados', nombre:'Mercados', puestos:['explorador', 'analista'] },
   { id:'desarrollo', nombre:'Desarrollo', puestos:['constructor', 'revisor'] },
   { id:'automatizaciones', nombre:'Automatizaciones', puestos:['disenador-flujos', 'integrador'] },
-  { id:'visuales', nombre:'Visuales', puestos:['director-arte', 'maquetador'] },
+  { id:'publicidad', nombre:'Publicidad', puestos:['director-arte', 'copy-publicitario'] },
+  { id:'webs', nombre:'Webs', puestos:['maquetador', 'frontend'] },
   { id:'auditoria', nombre:'Auditoría', puestos:['auditor-tecnico', 'auditor-negocio'] },
   SIMBAI,
 ];
+// de cada puesto, su despacho: una orden a un puesto se encarga al despacho entero
+const DESPACHO_DE = new Map(DESPACHOS.flatMap(d => d.puestos.map(p => [p, d.id])));
 const ROL = {
   asistenta:'Asistenta', explorador:'Explorador', analista:'Analista',
   constructor:'Constructor', revisor:'Revisor',
   'disenador-flujos':'Diseñador de flujos', integrador:'Integrador',
-  'director-arte':'Director de arte', maquetador:'Maquetador',
+  'director-arte':'Director de arte', 'copy-publicitario':'Copy publicitario',
+  maquetador:'Maquetador', frontend:'Frontend',
   'auditor-tecnico':'Auditor técnico', 'auditor-negocio':'Auditor de negocio',
   'captacion-crm':'Captación CRM', 'recepcion-abogados':'Recepción Abogados', 'inmobiliaria':'Inmobiliaria',
 };
@@ -280,14 +294,14 @@ const COMUNES = [
 // izquierda: lo más cercano a la entrada va al final de su lista. Las comunes quedan en
 // el medio de cada fila, que es por donde pasa todo el mundo.
 const ORDEN = {
-  norte: ['automatizaciones', 'visuales', 'reuniones', 'mercados'],
-  sur:   ['auditoria', 'office', 'desarrollo', 'simbai'],
+  norte: ['automatizaciones', 'publicidad', 'reuniones', 'mercados'],
+  sur:   ['auditoria', 'office', 'webs', 'desarrollo', 'simbai'],
 };
 
 const EJEMPLO = {
   despachos: {
     explorador: { despacho:'mercados', situacion:'trabajando', detalle:'busca oportunidades en hoteles de Málaga', cuando:new Date().toISOString() },
-    maquetador: { despacho:'visuales', situacion:'trabajando', detalle:'monta la landing del despacho de abogados', cuando:new Date().toISOString() },
+    maquetador: { despacho:'webs', situacion:'trabajando', detalle:'monta la landing del despacho de abogados', cuando:new Date().toISOString() },
     'auditor-tecnico': { despacho:'auditoria', situacion:'trabajando', detalle:'revisa el rendimiento de tres webs de cliente', cuando:new Date().toISOString() },
     revisor: { despacho:'desarrollo', situacion:'parado', detalle:'el motor local no responde', cuando:new Date().toISOString() },
     asistenta: { despacho:'recepcion', situacion:'libre', detalle:'', cuando:new Date().toISOString() },
@@ -736,6 +750,8 @@ function sala(cfg, esRecepcion = false){
     // dos puestos en L sobre la misma esquina: se miran, el trabajo pasa de uno a otro
     g.add(puesto(cfg.puestos[0], cfg.id, -1.15, -D / 2 + 1.35, 0));
     g.add(puesto(cfg.puestos[1], cfg.id, 1.5, -D / 2 + 2.6, -Math.PI / 2));
+    // un tercer puesto (SIMBAI tiene tres agentes reales) sigue la pared derecha, detras del segundo
+    if (cfg.puestos[2]) g.add(puesto(cfg.puestos[2], cfg.id, 1.5, -D / 2 + 5.0, -Math.PI / 2));
     // pizarra compartida, en la pared que ambos tienen a la vista
     const board = new THREE.Group(); board.position.set(W / 2 - 0.35, 1.3, -D / 2 + 1.6);
     board.add(caja(1.8, 1.2, 0.1, M.white, 0, 0, 0, 0.03));
@@ -934,6 +950,9 @@ const botonCerrar = '<button class="cerrar" aria-label="Cerrar"><svg viewBox="0 
 
 function pintaSala(id){
   const s = salas.get(id), cfg = s.userData.cfg;
+  // el sondeo repinta el panel cada 5 s: no puede borrar lo que se esta escribiendo
+  const borrador = Object.fromEntries(['encargo-txt', 'texto'].map(i => [i, document.getElementById(i)?.value ?? '']));
+  const tenia = document.activeElement?.id;
   $('#panel').innerHTML = `
     <div class="top">
       <span class="nm">${esc(cfg.nombre)}</span>
@@ -954,14 +973,125 @@ function pintaSala(id){
         </div>
       </div>`;
     }).join('')}
-    ${conChat(id) ? bloqueChat(id) : `<div class="pie">Clic fuera para volver a la vista general.</div>`}`;
+    ${conChat(id) ? bloqueChat(id) : conEncargo(id) ? bloqueEncargo(id) : `<div class="pie">Clic fuera para volver a la vista general.</div>`}`;
   $('#panel .cerrar').onclick = () => abre(null);
   if (conChat(id)) enlazaChat(id);
+  else if (conEncargo(id)) enlazaEncargo(id);
+  for (const [i, v] of Object.entries(borrador)){ const el = document.getElementById(i); if (el && v) el.value = v; }
+  if (tenia && document.getElementById(tenia)) document.getElementById(tenia).focus();
 }
 // se puede hablar en recepción y en el despacho de los agentes reales
 const conChat = id => CFG.chat && (id === 'recepcion' || id === 'simbai');
 // con quién se habla en cada sala; en SIMBAI se elige entre sus dos agentes
 const interlocutor = id => id === 'simbai' ? (charla.agente ?? SIMBAI.puestos[0]) : AGENTE_RECEPCION;
+
+/* ── encargos a los despachos (API del 8080) ───────── */
+// despacho -> [{id, texto, estado: en_curso|listo|error, resultado, mensaje, ficheros, inicio, seg}]
+const encargos = new Map();
+let relojEncargos = null;
+// se encarga a los despachos del JSON: ni recepción (chat), ni SIMBAI (agentes reales), ni zonas comunes
+const conEncargo = id => { const c = salas.get(id)?.userData.cfg; return !!c && !c.comun && !c.reales && id !== 'recepcion'; };
+const mmss = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+
+// markdown mínimo para el resultado: títulos, negrita, listas, enlaces y código. Escapa antes.
+function md(txt){
+  const bloques = [];
+  let t = esc(txt).replace(/```[a-z]*\n([\s\S]*?)```/g, (_, c) => { bloques.push(c); return `\u0000${bloques.length - 1}\u0000`; });
+  t = t.replace(/^#{1,3} (.+)$/gm, '<h4>$1</h4>')
+       .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+       .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+       .replace(/^(?:[-*] .+\n?)+/gm, m => `<ul>${m.trim().split(/\n/).map(l => `<li>${l.replace(/^[-*] /, '')}</li>`).join('')}</ul>`)
+       .replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br>');
+  t = t.replace(/\u0000(\d+)\u0000/g, (_, i) => `<pre>${bloques[+i]}</pre>`);
+  return `<p>${t}</p>`.replace(/<p>(<(?:h4|ul|pre)>)/g, '$1').replace(/(<\/(?:h4|ul|pre)>)<\/p>/g, '$1').replace(/<p><\/p>/g, '');
+}
+
+function bloqueEncargo(id){
+  const cfg = salas.get(id).userData.cfg;
+  return `<div class="chat">
+    <div class="orden-tit">Encargar a ${esc(cfg.nombre)}</div>
+    <form id="encargo-form">
+      <textarea id="encargo-txt" rows="2" placeholder="Qué tiene que hacer este despacho…"></textarea>
+      <button type="submit" aria-label="Encargar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+    </form>
+    <div class="nota">${cfg.puestos.map(p => esc(ROL[p] || titulo(p))).join(' y ')} lo hacen en cadena con el motor local, gratis. Tarda de uno a tres minutos; el resultado y los ficheros aparecen aquí.</div>
+    <div class="ordenes" id="encargos"></div>
+  </div>`;
+}
+
+function enlazaEncargo(id){
+  const form = $('#encargo-form');
+  form.onsubmit = e => { e.preventDefault(); encarga(id, $('#encargo-txt').value); };
+  $('#encargo-txt').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); encarga(id, $('#encargo-txt').value); } };
+  pintaEncargos(id);
+}
+
+function pintaEncargos(id){
+  const c = $('#encargos');
+  if (!c || abierto !== id) return;
+  const lista = encargos.get(id) || [];
+  c.innerHTML = lista.map(o => {
+    const seg = o.seg ?? (Date.now() - o.inicio) / 1000;
+    const clase = o.estado === 'en_curso' ? 'curso' : o.estado === 'listo' ? 'hecha' : 'fallo';
+    const etiqueta = o.estado === 'en_curso' ? `trabajando · ${mmss(seg)}` : o.estado === 'listo' ? `listo · ${mmss(seg)}` : 'error';
+    const corto = o.texto.length > 60 ? o.texto.slice(0, 60) + '…' : o.texto;
+    return `<div class="orden ${clase}">
+      <div class="orden-top"><b>${esc(corto)}</b><span>${etiqueta}</span></div>
+      ${o.estado === 'en_curso' ? `<div class="orden-txt">Los dos puestos están con ello<span class="dots"></span></div>` : ''}
+      ${o.estado === 'error' ? `<div class="orden-res">${esc(o.mensaje || 'Error sin detalle')}</div>` : ''}
+      ${o.estado === 'listo' ? `<div class="orden-res md">${md(o.resultado || '')}</div>` : ''}
+    </div>`;
+  }).join('');
+  // cronómetro mientras haya algo en curso; se apaga solo
+  if (!relojEncargos && lista.some(o => o.estado === 'en_curso')) relojEncargos = setInterval(() => {
+    if (![...encargos.values()].flat().some(o => o.estado === 'en_curso')){ clearInterval(relojEncargos); relojEncargos = null; }
+    if (abierto) pintaEncargos(abierto);
+  }, 1000);
+}
+
+// Manda el encargo y vuelve enseguida con un id; el trabajo tarda minutos y se sondea.
+async function encarga(despacho, texto){
+  texto = (texto || '').trim();
+  if (!texto) return;
+  const ta = $('#encargo-txt'); if (ta) ta.value = '';
+  const o = { id:null, texto, estado:'en_curso', resultado:null, mensaje:null, ficheros:[], inicio:Date.now(), seg:null };
+  if (!encargos.has(despacho)) encargos.set(despacho, []);
+  encargos.get(despacho).unshift(o);
+  pintaEncargos(despacho);
+  let r, d;
+  try {
+    r = await fetch(`${CFG.encargos}/encargo`, { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ despacho, texto }) });
+    d = await r.json().catch(() => ({}));
+  } catch {
+    // la API no está: la tarjeta lo dice y la oficina sigue en pie
+    o.estado = 'error'; o.mensaje = `Sin conexión con la API de encargos (${CFG.encargos}). En el PC: powershell -File Apps\\simbai-os\\start.ps1`;
+    o.seg = (Date.now() - o.inicio) / 1000; pintaEncargos(despacho); return;
+  }
+  if (!r.ok || !d.id){
+    o.estado = 'error'; o.mensaje = d.mensaje || d.error || `HTTP ${r.status}`;
+    o.seg = (Date.now() - o.inicio) / 1000; pintaEncargos(despacho); return;
+  }
+  o.id = d.id;
+  sondeaEncargo(despacho, o);
+}
+
+function sondeaEncargo(despacho, o){
+  const tic = async () => {
+    let d;
+    try {
+      const r = await fetch(`${CFG.encargos}/encargo/${o.id}`, { cache:'no-store' });
+      d = await r.json();
+    } catch { setTimeout(tic, 8000); return; } // un corte de red no mata el encargo: se reintenta
+    if (d.estado === 'en_curso'){ setTimeout(tic, 5000); return; }
+    o.estado = d.estado === 'listo' ? 'listo' : 'error';
+    o.resultado = d.resultado || null; o.mensaje = d.mensaje || null;
+    o.ficheros = d.ficheros || []; o.seg = d.seg ?? (Date.now() - o.inicio) / 1000;
+    const ultimo = puestos.get(salas.get(despacho)?.userData.cfg.puestos.at(-1));
+    if (ultimo) di(ultimo, o.estado === 'listo' ? 'Encargo listo' : 'No he podido terminarlo');
+    pintaEncargos(despacho);
+  };
+  setTimeout(tic, 5000);
+}
 
 function abre(id){
   abierto = id;
@@ -1079,15 +1209,12 @@ async function mandaOrden(){
   pintaOrdenes();
 
   if (!real){
-    // figurante: se queda trabajando con el texto de la orden como detalle
-    if (g){
-      animo(g, null);
-      g.userData.ordenado = true;
-      g.userData.estado = { ...(g.userData.estado || {}), situacion:'trabajando', detalle:texto, cuando:new Date().toISOString() };
-      aplica(para, g.userData.estado);
-    }
-    o.respuesta = 'Puesto sin agente detrás: la tarea queda anotada, pero no se ejecuta.';
-    pintaOrdenes();
+    // puesto del JSON: la tarea va como encargo a su despacho entero, que sí la ejecuta
+    if (g) animo(g, null);
+    ordenes.shift();
+    const desp = DESPACHO_DE.get(para);
+    if (desp && conEncargo(desp)){ abre(desp); encarga(desp, texto); }
+    else pintaOrdenes();
     return;
   }
 
@@ -1163,7 +1290,8 @@ function pintaHilo(){
     ? `<div class="m err">${esc(t.texto)}</div>`
     : `<div class="m ${t.tipo}">${esc(t.texto)}</div>` + (t.tipo === 'el' ? `<div class="meta">${t.motor === 'local' ? 'local · gratis' : `${t.coste ?? '?'} USD`}${t.ms ? ` · ${Math.round(t.ms / 1000)} s` : ''}</div>` : '')
   ).join('') + (charla.pensando ? '<div class="m el"><span class="dots">Pensando</span></div>' : '');
-  hilo.scrollTop = hilo.scrollHeight;
+  // el que se desplaza es el panel: se baja a lo último escrito
+  $('#panel')?.scrollTo({ top:$('#panel').scrollHeight, behavior:'smooth' });
   const con = interlocutor(charla.sala);
   $('#conQuien')?.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.agente === con));
   if (!localListo && charla.motor === 'local') charla.motor = 'claude';
@@ -1482,6 +1610,7 @@ async function principal(){
   setInterval(() => { cargaModelos().catch(() => {}); cargaAgentes().then(() => actualiza(ultimoJson)).catch(() => {}); }, 30_000);
 
   if (Q.has('test')) window.__oficina = {
+    abre, encarga, encargos,
     yo, puestos, salas, edificio, Box3:THREE.Box3, cam:camera.position, camara:camera, target:controls.target, maxDistance:controls.maxDistance, V3:THREE.Vector3,
     recepcion: rec,
     mercados: salas.get('mercados').getWorldPosition(new THREE.Vector3()),
