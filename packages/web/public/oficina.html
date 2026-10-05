@@ -153,6 +153,11 @@ aside .pie{font:11px/1.7 var(--mono);color:var(--mut);margin-top:12px;padding-to
 .orden-txt{font-size:12.5px;line-height:1.45;margin-top:5px}
 .orden-res{font-size:12px;line-height:1.5;margin-top:7px;padding-top:7px;border-top:1px solid var(--line);color:var(--cream2);white-space:pre-wrap}
 .orden-meta{font:10.5px var(--mono);color:var(--mut);margin-top:6px}
+/* imágenes entregadas por el encargo */
+.galeria{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:6px;margin-top:10px}
+.galeria a{display:block;border-radius:8px;overflow:hidden;border:1px solid var(--line);line-height:0;transition:border-color .16s}
+.galeria a:hover{border-color:var(--accent)}
+.galeria img{width:100%;aspect-ratio:1;object-fit:cover;display:block;background:var(--elev2)}
 
 .msg{position:fixed;inset:0;z-index:4;display:grid;place-items:center;text-align:center;color:var(--mut);font-size:13.5px;padding:20px;background:var(--night)}
 .msg b{display:block;font-family:var(--display);color:var(--cream);font-size:18px;margin-bottom:6px}
@@ -1026,6 +1031,20 @@ function enlazaEncargo(id){
   pintaEncargos(id);
 }
 
+// Las imágenes entregadas se ven, no solo se enlazan: es lo que el usuario quiere mirar
+// al terminar un encargo. El resto de ficheros ya van como enlace en el markdown.
+const ES_IMAGEN = /\.(png|jpe?g|webp|gif|avif)$/i;
+function galeria(ficheros){
+  const fotos = (ficheros || []).filter(f => ES_IMAGEN.test(f.ruta || ''));
+  if (!fotos.length) return '';
+  return `<div class="galeria">${fotos.map(f => {
+    const nombre = (f.ruta || '').split('/').pop();
+    return `<a href="${esc(f.url)}" target="_blank" rel="noopener" title="${esc(nombre)}">
+      <img src="${esc(f.url)}" alt="${esc(nombre)}" loading="lazy">
+    </a>`;
+  }).join('')}</div>`;
+}
+
 function pintaEncargos(id){
   const c = $('#encargos');
   if (!c || abierto !== id) return;
@@ -1040,6 +1059,7 @@ function pintaEncargos(id){
       ${o.estado === 'en_curso' ? `<div class="orden-txt">Los dos puestos están con ello<span class="dots"></span></div>` : ''}
       ${o.estado === 'error' ? `<div class="orden-res">${esc(o.mensaje || 'Error sin detalle')}</div>` : ''}
       ${o.estado === 'listo' ? `<div class="orden-res md">${md(o.resultado || '')}</div>` : ''}
+      ${o.estado === 'listo' ? galeria(o.ficheros) : ''}
     </div>`;
   }).join('');
   // cronómetro mientras haya algo en curso; se apaga solo
