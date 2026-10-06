@@ -195,7 +195,7 @@ body.embed .brand__name{font-size:16px}
   <div class="brand">
     <a class="card" href="/" aria-label="Volver a SIMBAI OS"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a>
     <span class="brand__mark"></span>
-    <div><div class="brand__name" id="marca">OFICINA SIMBAI</div><div class="brand__sub" id="lema">trece agentes, seis despachos</div></div>
+    <div><div class="brand__name" id="marca">OFICINA SIMBAI</div><div class="brand__sub" id="lema">diecisiete agentes, siete despachos</div></div>
   </div>
   <div class="status card" id="estado"><i></i><span>cargando…</span></div>
 </header>
@@ -227,7 +227,7 @@ const flag = (n, pd) => Q.has(n) ? Q.get(n) !== '0' : pd;
 const CFG = {
   embed: flag('embed', false),
   name: Q.get('name') || 'OFICINA SIMBAI',
-  tagline: Q.get('tagline') || 'trece agentes, seis despachos',
+  tagline: Q.get('tagline') || 'diecisiete agentes, siete despachos',
   accent: /^#[0-9a-f]{3,8}$/i.test(Q.get('accent') || '') ? Q.get('accent') : '#c8ff00',
   labels: flag('labels', true),
   // el panel de estados vive aquí por defecto; ?estado= lo cambia y ?estado= vacío lo apaga
@@ -262,7 +262,7 @@ const RECEPCION = { id:'recepcion', nombre:'Recepción', puestos:['asistenta'] }
 // de /api/agentes, no del endpoint de estados
 // Agentes que existen de verdad en agents/ y que el puente sabe ejecutar. Solo a estos se
 // les puede mandar una tarea que se cumpla; el resto de puestos son figurantes del JSON.
-const SIMBAI = { id:'simbai', nombre:'SIMBAI', reales:true, puestos:['captacion-crm', 'recepcion-abogados', 'inmobiliaria'] };
+const SIMBAI = { id:'simbai', nombre:'SIMBAI', reales:true, puestos:['captacion-crm', 'recepcion-abogados', 'inmobiliaria', 'publicidad'] };
 const DESPACHOS = [
   { id:'mercados', nombre:'Mercados', puestos:['explorador', 'analista'] },
   { id:'desarrollo', nombre:'Desarrollo', puestos:['constructor', 'revisor'] },
@@ -1039,8 +1039,11 @@ function galeria(ficheros){
   if (!fotos.length) return '';
   return `<div class="galeria">${fotos.map(f => {
     const nombre = (f.ruta || '').split('/').pop();
-    return `<a href="${esc(f.url)}" target="_blank" rel="noopener" title="${esc(nombre)}">
-      <img src="${esc(f.url)}" alt="${esc(nombre)}" loading="lazy">
+    // la URL se codifica además de escaparse: un espacio o un acento en el nombre del
+    // fichero rompería el enlace, y los nombres los eligen los agentes
+    const url = esc(encodeURI(f.url || ''));
+    return `<a href="${url}" target="_blank" rel="noopener" title="${esc(nombre)}">
+      <img src="${url}" alt="${esc(nombre)}" loading="lazy">
     </a>`;
   }).join('')}</div>`;
 }
